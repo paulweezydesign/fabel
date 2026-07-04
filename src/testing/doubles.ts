@@ -11,7 +11,7 @@ export interface StubAiClient extends AiClient {
 }
 
 export const createStubAiClient = (
-  respond: (messages: AiMessage[]) => string = () => '{}',
+  respond: (messages: readonly AiMessage[]) => string = () => '{}',
 ): StubAiClient => {
   const calls: { messages: AiMessage[] }[] = [];
   return {
