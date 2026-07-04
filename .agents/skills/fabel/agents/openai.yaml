@@ -1,0 +1,6 @@
+interface:
+  display_name: "Fabel"
+  short_description: "Repo-specific patterns and workflows for fabel"
+  default_prompt: "Use the fabel repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
