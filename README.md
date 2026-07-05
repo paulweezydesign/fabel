@@ -45,10 +45,28 @@ curl -s -X POST localhost:3000/api/agents/research/run \
 | `pnpm run lint` | Lint with ESLint |
 | `pnpm run build` | Emit `dist/` |
 
+## AI provider
+
+`createApp()` auto-selects the AI backend via `selectAiClient(process.env)`
+(`src/services/openai-ai-client.ts`): if `OPENAI_API_KEY` is set it uses the
+real `OpenAiClient` (OpenAI-compatible Chat Completions), otherwise it falls
+back to the offline `StubAiClient`. Pass `createApp({ aiClient })` to override.
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `OPENAI_API_KEY` | _(none)_ | Enables the real provider; required by `OpenAiClient` |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | API base URL (any OpenAI-compatible endpoint) |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Model id used for completions |
+
+```bash
+OPENAI_API_KEY=sk-... pnpm run dev   # uses the real provider
+pnpm run dev                         # no key → stub responses
+```
+
 ## Design
 
-- **AI provider is stubbed by default** so everything runs without an API key;
-  inject a real `AiClient` via `createApp({ aiClient })` (`src/app.ts`).
+- **AI provider auto-selected** (see above): real when `OPENAI_API_KEY` is set,
+  else stubbed so everything runs without an API key.
 - **Approvals** are API calls; workflows rest at `needs_review` until approved.
 - **Persistence** is in-memory by default (a `FileArtifactStore` exists behind
   the same interface); state resets on restart.

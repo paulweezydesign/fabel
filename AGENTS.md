@@ -34,9 +34,14 @@
 - **ESM import extensions:** intra-repo imports use explicit `.js` suffixes
   (e.g. `./agent-types.js`) even though sources are `.ts`. This is required for
   Node ESM at runtime (`tsx`/`node`); keep it when adding files.
-- **AI provider is stubbed by default (PRD §10 #1).** `createApp()` wires a
-  `StubAiClient` so the server and workflows run end-to-end with no API key.
-  Inject a real `AiClient` via `createApp({ aiClient })` when a provider is chosen.
+- **AI provider is auto-selected.** `createApp()` calls
+  `selectAiClient(process.env)` (`src/services/openai-ai-client.ts`): a real
+  `OpenAiClient` when `OPENAI_API_KEY` is set, else the offline `StubAiClient`
+  (so the server and workflows still run end-to-end with no key). Relevant env:
+  `OPENAI_API_KEY` (required for the real path), `OPENAI_BASE_URL` (default
+  `https://api.openai.com/v1`), `OPENAI_MODEL` (default `gpt-4o-mini`). Override
+  entirely via `createApp({ aiClient })`. `OpenAiClient` uses global `fetch`
+  (no SDK) and accepts an injectable `fetchImpl` so tests never hit the network.
 - **Approval UX (PRD §10 #2) = API call.** Workflows pause at
   `needs_review`; resume with `POST /api/workflows/:workflowId/approve` body
   `{ "stepId": "<gate step id>" }`.
