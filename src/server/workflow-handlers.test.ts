@@ -4,7 +4,10 @@ import {
   createWorkflowRunHandler,
   createWorkflowStartHandler,
 } from './workflow-handlers';
-import { createWorkflowService } from './workflow-service';
+import {
+  createDeferredTaskQueue,
+  createWorkflowService,
+} from './workflow-service';
 import { createInMemoryWorkflowRunStore } from '@/core/workflow-run-store';
 import { createInMemoryArtifactStore } from '@/core/artifact-store';
 import { createAgentFactory } from '@/core/agent-factory';
@@ -17,6 +20,7 @@ import {
 
 const makeHandlers = () => {
   const logger = createRecordingLogger();
+  const queue = createDeferredTaskQueue();
   const service = createWorkflowService({
     runStore: createInMemoryWorkflowRunStore(),
     artifactStore: createInMemoryArtifactStore(),
@@ -31,18 +35,20 @@ const makeHandlers = () => {
       },
     }),
     logger,
+    schedule: queue.schedule,
   });
 
   return {
     start: createWorkflowStartHandler({ service }),
     get: createWorkflowRunHandler({ service }),
     approve: createWorkflowApproveHandler({ service }),
+    queue,
   };
 };
 
 describe('workflow API handlers', () => {
-  it('POST /api/workflows/:id/run starts a workflow (AC-14 analogue)', async () => {
-    const { start } = makeHandlers();
+  it('POST /api/workflows/:id/run returns running immediately (async execution)', async () => {
+    const { start, get, queue } = makeHandlers();
     const response = await start(
       new Request('http://test/api/workflows/lead-to-outreach/run', {
         method: 'POST',
@@ -57,8 +63,15 @@ describe('workflow API handlers', () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload.run.status).toBe('needs_review');
+    expect(payload.run.status).toBe('running');
     expect(payload.run.definitionId).toBe('lead-to-outreach');
+
+    await queue.flush();
+
+    const detail = await (
+      await get(new Request('http://test'), { runId: payload.run.id })
+    ).json();
+    expect(detail.run.status).toBe('needs_review');
   });
 
   it('GET /api/workflows/runs/:runId returns run detail and artifacts', async () => {
@@ -73,6 +86,7 @@ describe('workflow API handlers', () => {
         { id: 'lead-to-outreach' },
       )
     ).json();
+    await handlers.queue.flush();
 
     const response = await handlers.get(new Request('http://test'), {
       runId: started.run.id,
@@ -96,19 +110,31 @@ describe('workflow API handlers', () => {
         { id: 'lead-to-outreach' },
       )
     ).json();
+    await handlers.queue.flush();
+
+    const paused = await (
+      await handlers.get(new Request('http://test'), { runId: started.run.id })
+    ).json();
 
     const response = await handlers.approve(
       new Request('http://test', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ stepId: started.run.pendingApprovalStepId }),
+        body: JSON.stringify({ stepId: paused.run.pendingApprovalStepId }),
       }),
       { runId: started.run.id },
     );
 
     expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload.run.status).toBe('completed');
+    expect(payload.run.status).toBe('running');
+
+    await handlers.queue.flush();
+
+    const completed = await (
+      await handlers.get(new Request('http://test'), { runId: started.run.id })
+    ).json();
+    expect(completed.run.status).toBe('completed');
   });
 
   it('returns 404 for an unknown workflow id', async () => {
@@ -140,6 +166,7 @@ describe('workflow API handlers', () => {
         { id: 'lead-to-outreach' },
       )
     ).json();
+    await handlers.queue.flush();
 
     const response = await handlers.approve(
       new Request('http://test', {

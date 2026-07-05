@@ -1,5 +1,10 @@
 import type { AgentType } from '@/core/agent-types';
-import type { StepStatus, WorkflowDefinition, WorkflowRunSnapshot } from '@/core/workflow-runner';
+import type {
+  StepStatus,
+  WorkflowDefinition,
+  WorkflowRunSnapshot,
+  WorkflowStatus,
+} from '@/core/workflow-runner';
 
 export interface StepTimelineItem {
   readonly id: string;
@@ -28,6 +33,11 @@ export const canApproveRun = (run: WorkflowRunSnapshot): boolean =>
   run.status === 'needs_review' && run.pendingApprovalStepId !== null;
 
 export const isRunActive = (run: WorkflowRunSnapshot): boolean => run.status === 'running';
+
+export const isTerminalRunStatus = (status: WorkflowStatus): boolean =>
+  status === 'needs_review' || status === 'completed' || status === 'failed';
+
+export const shouldPollRun = (run: WorkflowRunSnapshot): boolean => isRunActive(run);
 
 export const formatArtifactContent = (content: unknown): string => {
   if (typeof content === 'string') return content;

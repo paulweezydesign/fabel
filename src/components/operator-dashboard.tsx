@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Artifact } from '@/core/artifact-store';
 import type { WorkflowRunSnapshot } from '@/core/workflow-runner';
 import {
   buildStepTimeline,
   canApproveRun,
   formatArtifactContent,
+  shouldPollRun,
   statusLabel,
 } from '@/client/dashboard-state';
 import {
@@ -22,6 +23,7 @@ import {
 
 const workflows = listWorkflowDefinitionMeta();
 const client = createWorkflowClient();
+const POLL_INTERVAL_MS = 2000;
 
 type Phase = 'idle' | 'starting' | 'approving' | 'ready';
 
@@ -53,10 +55,21 @@ export function OperatorDashboard() {
     return next;
   }, []);
 
+  useEffect(() => {
+    if (!run || !shouldPollRun(run)) return;
+
+    const interval = window.setInterval(() => {
+      void loadDetail(run.id).catch(() => {
+        /* polling errors surface on the next explicit action */
+      });
+    }, POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [run, loadDetail]);
+
   const handleStart = async () => {
     setError(null);
     setPhase('starting');
-    setDetail(null);
 
     try {
       const started = await client.start(selectedWorkflow, {
@@ -68,10 +81,12 @@ export function OperatorDashboard() {
           goal,
         },
       });
-      await loadDetail(started.id);
+      setDetail({ run: started, artifacts: [] });
       setPhase('ready');
+      void loadDetail(started.id);
     } catch (err) {
       setPhase('idle');
+      setDetail(null);
       setError(err instanceof WorkflowClientError ? err.message : 'Failed to start workflow.');
     }
   };
@@ -84,8 +99,11 @@ export function OperatorDashboard() {
 
     try {
       const approved = await client.approve(run.id, run.pendingApprovalStepId);
-      await loadDetail(approved.id);
+      setDetail((current) =>
+        current ? { ...current, run: approved } : { run: approved, artifacts: [] },
+      );
       setPhase('ready');
+      void loadDetail(approved.id);
     } catch (err) {
       setPhase('ready');
       setError(err instanceof WorkflowClientError ? err.message : 'Failed to approve workflow.');
@@ -99,6 +117,7 @@ export function OperatorDashboard() {
   };
 
   const busy = phase === 'starting' || phase === 'approving';
+  const polling = run !== null && shouldPollRun(run);
 
   return (
     <div className="dashboard">
@@ -182,6 +201,7 @@ export function OperatorDashboard() {
                 Run <code>{run.id.slice(0, 8)}…</code>
               </span>
               <span className={`status-badge ${run.status}`}>{statusLabel(run.status)}</span>
+              {polling && <span>Updating live…</span>}
               {run.error && <span>{run.error}</span>}
             </div>
 
@@ -228,7 +248,9 @@ export function OperatorDashboard() {
           <section className="panel">
             <h2>Artifacts</h2>
             {artifacts.length === 0 ? (
-              <p className="empty-state">No artifacts yet.</p>
+              <p className="empty-state">
+                {polling ? 'Agents are working — artifacts will appear here.' : 'No artifacts yet.'}
+              </p>
             ) : (
               <div className="artifact-list">
                 {artifacts.map((artifact: Artifact) => (
