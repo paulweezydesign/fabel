@@ -27,7 +27,6 @@ export class ConsoleLogger implements Logger {
       at: new Date().toISOString(),
       ...(meta ? { meta } : {}),
     };
-    // eslint-disable-next-line no-console
     console[level === "debug" ? "log" : level](JSON.stringify(entry));
   }
 
