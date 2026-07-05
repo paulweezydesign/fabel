@@ -19,6 +19,29 @@ export interface WorkflowRunDetail {
   readonly artifacts: readonly Artifact[];
 }
 
+export type TaskScheduler = (task: () => Promise<void>) => void;
+
+export interface DeferredTaskQueue {
+  schedule: TaskScheduler;
+  flush: () => Promise<void>;
+}
+
+/** Test helper: tasks run only when flush() is called. */
+export const createDeferredTaskQueue = (): DeferredTaskQueue => {
+  const tasks: (() => Promise<void>)[] = [];
+  return {
+    schedule: (task) => {
+      tasks.push(task);
+    },
+    flush: async () => {
+      while (tasks.length > 0) {
+        const task = tasks.shift()!;
+        await task();
+      }
+    },
+  };
+};
+
 export interface WorkflowService {
   start(
     workflowId: string,
@@ -34,14 +57,38 @@ interface WorkflowServiceInit {
   artifactStore: ArtifactStore;
   factory: AgentFactory;
   logger: Logger;
+  schedule?: TaskScheduler;
 }
+
+const runningResponse = (
+  snapshot: WorkflowRunSnapshot,
+  overrides: Partial<WorkflowRunSnapshot> = {},
+): WorkflowRunSnapshot => ({
+  ...snapshot,
+  status: 'running',
+  pendingApprovalStepId: null,
+  startedAt: snapshot.startedAt ?? new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  ...overrides,
+});
 
 export const createWorkflowService = ({
   runStore,
   artifactStore,
   factory,
   logger,
+  schedule,
 }: WorkflowServiceInit): WorkflowService => {
+  const runInBackground =
+    schedule ??
+    ((task: () => Promise<void>) => {
+      void task().catch((error) => {
+        logger.error('background workflow task failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    });
+
   const persist = async (run: ReturnType<typeof createWorkflowRun>) => {
     await runStore.save(run.getSnapshot());
   };
@@ -56,6 +103,7 @@ export const createWorkflowService = ({
       artifactStore,
       logger,
       snapshot,
+      onProgress: (next) => runStore.save(next),
     });
 
   return {
@@ -64,15 +112,30 @@ export const createWorkflowService = ({
         throw new Error(`Unknown workflow "${workflowId}".`);
       }
 
+      const definition = resolveWorkflowDefinition(workflowId, projectId);
       const run = createWorkflowRun({
-        definition: resolveWorkflowDefinition(workflowId, projectId),
+        definition,
         factory,
         artifactStore,
         logger,
+        onProgress: (next) => runStore.save(next),
       });
-      await run.start(input);
-      await persist(run);
-      return run.getSnapshot();
+      const pendingSnapshot = run.getSnapshot();
+
+      runInBackground(async () => {
+        const runner = createWorkflowRun({
+          definition,
+          factory,
+          artifactStore,
+          logger,
+          snapshot: pendingSnapshot,
+          onProgress: (next) => runStore.save(next),
+        });
+        await runner.start(input);
+        await persist(runner);
+      });
+
+      return runningResponse(pendingSnapshot, { workflowInput: input });
     },
 
     getRun: async (runId) => {
@@ -89,11 +152,24 @@ export const createWorkflowService = ({
       if (!snapshot) {
         throw new Error(`Workflow run "${runId}" not found.`);
       }
+      if (snapshot.status !== 'needs_review' || snapshot.pendingApprovalStepId === null) {
+        throw new Error(`Workflow run ${runId} is not awaiting review.`);
+      }
+      if (stepId !== snapshot.pendingApprovalStepId) {
+        throw new Error(
+          `Step "${stepId}" is not awaiting approval; expected "${snapshot.pendingApprovalStepId}".`,
+        );
+      }
 
-      const run = restoreRun(snapshot);
-      await run.approve(stepId);
-      await persist(run);
-      return run.getSnapshot();
+      const pausedSnapshot = snapshot;
+
+      runInBackground(async () => {
+        const runner = restoreRun(pausedSnapshot);
+        await runner.approve(stepId);
+        await persist(runner);
+      });
+
+      return runningResponse(pausedSnapshot);
     },
 
     listDefinitions: listWorkflowDefinitionMeta,

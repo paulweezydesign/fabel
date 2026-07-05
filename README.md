@@ -37,7 +37,7 @@ curl -X POST http://localhost:3000/api/workflows/runs/<runId>/approve \
 
 ## Operator dashboard
 
-Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, run it, review artifacts at the approval gate, and click **Approve & continue**.
+Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, and click **Run workflow** — the UI returns immediately and polls for live step progress while agents work in the background. Review artifacts at the approval gate, then click **Approve & continue**.
 
 The dashboard calls the workflow API routes below the hood — no curl required.
 

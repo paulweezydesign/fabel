@@ -71,6 +71,8 @@ interface WorkflowRunInit {
   artifactStore: ArtifactStore;
   logger: Logger;
   snapshot?: WorkflowRunSnapshot;
+  /** Called after each persisted state transition — used for async progress updates. */
+  onProgress?: (snapshot: WorkflowRunSnapshot) => void | Promise<void>;
 }
 
 const validateSteps = (steps: readonly WorkflowStep[]): void => {
@@ -119,6 +121,7 @@ export const createWorkflowRun = ({
   artifactStore,
   logger,
   snapshot,
+  onProgress,
 }: WorkflowRunInit): WorkflowRun => {
   const id = snapshot?.id ?? randomUUID();
   const createdAt = snapshot?.createdAt ?? new Date().toISOString();
@@ -137,8 +140,24 @@ export const createWorkflowRun = ({
   let error: string | null = snapshot?.error ?? null;
   let workflowInput: TaskInput = snapshot?.workflowInput ?? {};
 
+  const buildSnapshot = (): WorkflowRunSnapshot => ({
+    id,
+    definitionId: definition.id,
+    projectId: definition.projectId,
+    status,
+    startedAt,
+    pendingApprovalStepId,
+    error,
+    stepStatuses: recordFromMap(stepStatuses),
+    approvedStepIds: [...approvedSteps],
+    workflowInput,
+    createdAt,
+    updatedAt,
+  });
+
   const touch = () => {
     updatedAt = new Date().toISOString();
+    if (onProgress) void onProgress(buildSnapshot());
   };
 
   const nextReadyStep = (): WorkflowStep | undefined =>
@@ -224,21 +243,6 @@ export const createWorkflowRun = ({
     touch();
     logger.info(`workflow completed`, { workflowId: id });
   };
-
-  const buildSnapshot = (): WorkflowRunSnapshot => ({
-    id,
-    definitionId: definition.id,
-    projectId: definition.projectId,
-    status,
-    startedAt,
-    pendingApprovalStepId,
-    error,
-    stepStatuses: recordFromMap(stepStatuses),
-    approvedStepIds: [...approvedSteps],
-    workflowInput,
-    createdAt,
-    updatedAt,
-  });
 
   return {
     id,
