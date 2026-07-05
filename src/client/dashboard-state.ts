@@ -39,14 +39,7 @@ export const isTerminalRunStatus = (status: WorkflowStatus): boolean =>
 
 export const shouldPollRun = (run: WorkflowRunSnapshot): boolean => isRunActive(run);
 
-export const formatArtifactContent = (content: unknown): string => {
-  if (typeof content === 'string') return content;
-  try {
-    return JSON.stringify(content, null, 2);
-  } catch {
-    return String(content);
-  }
-};
+export { formatRawArtifactContent as formatArtifactContent } from './artifact-renderer';
 
 export const statusLabel = (status: WorkflowRunSnapshot['status']): string => {
   switch (status) {
