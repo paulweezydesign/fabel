@@ -2,50 +2,55 @@
 
 ## Cursor Cloud specific instructions
 
-### Current repository state (greenfield)
+### Stack & package manager
 
-As of this writing, `fabel` is a **greenfield repository**. The only tracked
-content is:
+`fabel` is a **TypeScript / Node.js** project managed with **pnpm** (see
+`packageManager` in `package.json` and `pnpm-lock.yaml`). Node `v22.x`, `npm`,
+`pnpm`, and `yarn` are all preinstalled on the VM — no extra system deps.
 
-- `README.md` — placeholder (`# fabel`).
-- `prd/v1-agent-powered-agency-platform.md` — the V1 PRD (the source of truth
-  for what will be built).
+### Commands (defined in `package.json` scripts)
 
-There is **no application code, `package.json`, lockfile, test runner, or build
-config yet**. Consequently there is nothing to build or run, and there are no
-`lint` / `test` / `build` / `dev` commands defined. Do not expect a runnable
-service until the project is scaffolded per the PRD.
+- `pnpm run dev` — standalone Node HTTP server via `tsx watch` (hot reload).
+  Honors `PORT` (default `3000`).
+- `pnpm start` — run the server once (no watch).
+- `pnpm test` — Vitest (all `src/**/*.test.ts`); `pnpm test:watch` for watch.
+- `pnpm run typecheck` — `tsc --noEmit`.
+- `pnpm run lint` — ESLint (flat config).
+- `pnpm run build` — emits `dist/` via `tsconfig.build.json`.
 
-### Intended stack (per the PRD)
+### Architecture (matches PRD §5 layout under `src/`)
 
-The PRD specifies **TypeScript / Node.js** with mandatory test-driven
-development. The server framework, AI provider, and package manager are
-explicit open questions (PRD §10) and are intentionally undecided. Do not lock
-these in unless the task asks you to.
+- `src/core` — `AgentType`, `AgentContext`, `AgentRunResult`, `BaseAgent`,
+  `AgentFactory`, `ArtifactStore` (in-memory + file), `WorkflowRunner`.
+- `src/agents` — the seven specialized agents.
+- `src/services` — `AiClient` (+ `StubAiClient`), `logger`, `message-bus`.
+- `src/workflows` — the three V1 workflow definitions (pure data).
+- `src/api` + `src/server.ts` — HTTP layer; `src/client` — browser `run()` wrapper.
+- `src/app.ts` — composition root (`createApp()`), the place to swap services.
+- `src/testing` — test-only helpers (excluded from the build).
 
-### Toolchain available on the VM (verified)
+### Non-obvious notes
 
-The base image already provides everything the intended stack needs — no extra
-system dependencies are required:
-
-- Node.js `v22.x`, `npm`, `pnpm`, and `yarn` are all preinstalled.
-- The TypeScript dev flow was verified end-to-end in a throwaway sandbox
-  (not committed): `npm install`, `tsc --noEmit`, running `.ts` via `tsx`, and
-  `vitest run` all work.
+- **ESM import extensions:** intra-repo imports use explicit `.js` suffixes
+  (e.g. `./agent-types.js`) even though sources are `.ts`. This is required for
+  Node ESM at runtime (`tsx`/`node`); keep it when adding files.
+- **AI provider is stubbed by default (PRD §10 #1).** `createApp()` wires a
+  `StubAiClient` so the server and workflows run end-to-end with no API key.
+  Inject a real `AiClient` via `createApp({ aiClient })` when a provider is chosen.
+- **Approval UX (PRD §10 #2) = API call.** Workflows pause at
+  `needs_review`; resume with `POST /api/workflows/:workflowId/approve` body
+  `{ "stepId": "<gate step id>" }`.
+- **State is in-memory.** The default `ArtifactStore` and the runner's run
+  registry reset on every server restart; started workflows do not survive a
+  reload. A `FileArtifactStore` exists behind the same interface.
+- **pnpm build scripts:** `esbuild` is pre-approved via
+  `pnpm.onlyBuiltDependencies` in `package.json`, so `pnpm install` is
+  non-interactive. Do not run `pnpm approve-builds` (interactive).
+- **TDD is the workflow:** every module has co-located `*.test.ts`; add tests
+  first (red → green) when extending.
 
 ### Update script behavior
 
 The registered startup update script is **dependency-only and guarded**: it
-installs JS dependencies only if a manifest exists, auto-selecting the package
-manager from the lockfile (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn,
-`package-lock.json` → `npm ci`, otherwise `package.json` → `npm install`). While
-the repo is greenfield it is a no-op. Once the project is scaffolded, this
-script will pick up dependencies automatically without changes.
-
-### Once code exists
-
-After scaffolding, prefer the package manager matching the committed lockfile,
-and use the `scripts` defined in `package.json` for `dev` / `test` / `lint` /
-`build`. Update this section with any non-obvious run/startup caveats you
-discover (e.g. required env vars for the `AiClient`, or how the API server is
-started).
+auto-selects the package manager from the lockfile (`pnpm-lock.yaml` → pnpm,
+etc.). With `pnpm-lock.yaml` committed it runs `pnpm install`.
