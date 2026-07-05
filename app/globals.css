@@ -108,6 +108,53 @@ a {
   color: var(--muted);
 }
 
+.run-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.run-history-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.run-history-item:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.run-history-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.run-history-main strong {
+  font-size: 0.9rem;
+}
+
+.run-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .form-grid {
   display: grid;
   gap: 1rem;

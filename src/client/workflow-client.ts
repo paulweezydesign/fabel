@@ -8,11 +8,21 @@ export interface WorkflowRunDetail {
   readonly artifacts: readonly Artifact[];
 }
 
+export interface WorkflowRunSummary {
+  readonly id: string;
+  readonly definitionId: string;
+  readonly projectId: string;
+  readonly status: WorkflowRunSnapshot['status'];
+  readonly startedAt: string | null;
+  readonly updatedAt: string;
+}
+
 export interface WorkflowClient {
   start(
     workflowId: WorkflowId,
     options: { projectId: string; input: TaskInput },
   ): Promise<WorkflowRunSnapshot>;
+  listRuns(): Promise<readonly WorkflowRunSummary[]>;
   getRun(runId: string): Promise<WorkflowRunDetail>;
   approve(runId: string, stepId: string): Promise<WorkflowRunSnapshot>;
 }
@@ -50,6 +60,18 @@ export const createWorkflowClient = (fetchImpl: FetchImpl = fetch): WorkflowClie
     }
     const payload = (await response.json()) as { run: WorkflowRunSnapshot };
     return payload.run;
+  },
+
+  listRuns: async () => {
+    const response = await fetchImpl('/api/workflows/runs');
+    if (!response.ok) {
+      throw new WorkflowClientError(
+        response.status,
+        await readError(response, `Workflow run list failed with status ${response.status}.`),
+      );
+    }
+    const payload = (await response.json()) as { runs: WorkflowRunSummary[] };
+    return payload.runs;
   },
 
   getRun: async (runId) => {
