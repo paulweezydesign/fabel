@@ -41,6 +41,8 @@ Open `http://localhost:3000` after starting the dev server. Pick a workflow, ent
 
 The dashboard calls the workflow API routes below the hood — no curl required.
 
+Workflow ids: `lead-to-outreach`, `intake-to-project-brief`, `brief-to-build-plan`.
+
 ## Setup
 
 ```bash
