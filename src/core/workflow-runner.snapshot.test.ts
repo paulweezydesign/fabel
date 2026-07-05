@@ -130,7 +130,7 @@ describe('WorkflowRun snapshot', () => {
       snapshot,
     });
 
-    await expect(restored.start({})).rejects.toThrow(/pending/);
+    await expect(restored.start({})).rejects.toThrow(/already been started/);
   });
 });
 
