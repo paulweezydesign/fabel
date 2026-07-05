@@ -35,15 +35,30 @@ curl -s -X POST localhost:3000/api/agents/research/run \
   -H 'content-type: application/json' -d '{"prompt":"Acme Corp"}'
 ```
 
+## Configuration
+
+Environment variables are documented in [`.env.example`](.env.example). Copy it
+to `.env` (gitignored) and adjust as needed. `PORT` sets the server port; the
+`OPENAI_*` variables are optional/forward-looking since the AI client is stubbed
+by default.
+
 ## Scripts
 
 | Command | Purpose |
 |---|---|
 | `pnpm run dev` | Run the API server with hot reload (`PORT`, default 3000) |
 | `pnpm test` | Run the Vitest suite |
+| `pnpm run test:coverage` | Run the suite with V8 coverage (thresholds enforced) |
 | `pnpm run typecheck` | Type-check with `tsc --noEmit` |
 | `pnpm run lint` | Lint with ESLint |
 | `pnpm run build` | Emit `dist/` |
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and
+pull request. It installs dependencies with a frozen lockfile, then runs lint,
+typecheck, `test:coverage` (which enforces coverage thresholds in
+[`vitest.config.ts`](vitest.config.ts)), and build.
 
 ## Design
 
