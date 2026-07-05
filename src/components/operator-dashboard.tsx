@@ -6,10 +6,10 @@ import type { WorkflowRunSnapshot } from '@/core/workflow-runner';
 import {
   buildStepTimeline,
   canApproveRun,
-  formatArtifactContent,
   shouldPollRun,
   statusLabel,
 } from '@/client/dashboard-state';
+import { formatArtifactForDisplay } from '@/client/artifact-renderer';
 import {
   createWorkflowClient,
   WorkflowClientError,
@@ -253,15 +253,44 @@ export function OperatorDashboard() {
               </p>
             ) : (
               <div className="artifact-list">
-                {artifacts.map((artifact: Artifact) => (
-                  <article key={artifact.id} className="artifact-card">
-                    <header>
-                      <strong>{artifact.title}</strong>
-                      <span>{artifact.agentType.replace(/_/g, ' ')}</span>
-                    </header>
-                    <pre>{formatArtifactContent(artifact.content)}</pre>
-                  </article>
-                ))}
+                {artifacts.map((artifact: Artifact) => {
+                  const display = formatArtifactForDisplay(artifact.content);
+                  return (
+                    <article key={artifact.id} className="artifact-card">
+                      <header>
+                        <strong>{artifact.title}</strong>
+                        <span>{artifact.agentType.replace(/_/g, ' ')}</span>
+                      </header>
+                      <div className="artifact-body">
+                        <p className="artifact-summary">{display.summary}</p>
+                        {display.highlights.length > 0 && (
+                          <dl className="artifact-highlights">
+                            {display.highlights.map((highlight) => (
+                              <div key={highlight.label} className="artifact-highlight">
+                                <dt>{highlight.label}</dt>
+                                <dd>
+                                  {Array.isArray(highlight.value) ? (
+                                    <ul>
+                                      {highlight.value.map((item) => (
+                                        <li key={item}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p>{highlight.value}</p>
+                                  )}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+                        <details className="artifact-raw">
+                          <summary>Raw JSON</summary>
+                          <pre>{display.raw}</pre>
+                        </details>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
