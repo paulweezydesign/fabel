@@ -35,7 +35,11 @@ curl -X POST http://localhost:3000/api/workflows/runs/<runId>/approve \
   -d '{"stepId":"draft-outreach"}'
 ```
 
-Workflow ids: `lead-to-outreach`, `intake-to-project-brief`, `brief-to-build-plan`.
+## Operator dashboard
+
+Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, run it, review artifacts at the approval gate, and click **Approve & continue**.
+
+The dashboard calls the workflow API routes below the hood — no curl required.
 
 ## Setup
 
