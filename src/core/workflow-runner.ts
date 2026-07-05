@@ -37,6 +37,22 @@ export type WorkflowStatus =
 
 export type StepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
+/** Serialisable workflow run state for persistence across HTTP requests. */
+export interface WorkflowRunSnapshot {
+  readonly id: string;
+  readonly definitionId: string;
+  readonly projectId: string;
+  readonly status: WorkflowStatus;
+  readonly startedAt: string | null;
+  readonly pendingApprovalStepId: string | null;
+  readonly error: string | null;
+  readonly stepStatuses: Record<string, StepStatus>;
+  readonly approvedStepIds: readonly string[];
+  readonly workflowInput: TaskInput;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface WorkflowRun {
   readonly id: string;
   readonly status: WorkflowStatus;
@@ -44,6 +60,7 @@ export interface WorkflowRun {
   readonly pendingApprovalStepId: string | null;
   readonly error: string | null;
   stepStatus(stepId: string): StepStatus;
+  getSnapshot(): WorkflowRunSnapshot;
   start(input: TaskInput): Promise<void>;
   approve(stepId: string): Promise<void>;
 }
@@ -53,6 +70,7 @@ interface WorkflowRunInit {
   factory: AgentFactory;
   artifactStore: ArtifactStore;
   logger: Logger;
+  snapshot?: WorkflowRunSnapshot;
 }
 
 const validateSteps = (steps: readonly WorkflowStep[]): void => {
@@ -67,8 +85,6 @@ const validateSteps = (steps: readonly WorkflowStep[]): void => {
     throw new Error(`Invalid workflow: ${unknownDeps.join('; ')}.`);
   }
 
-  // Cycle detection: repeatedly remove steps whose dependencies are all
-  // removed; anything left participates in a cycle.
   const remaining = new Map(steps.map((s) => [s.id, s.dependsOn ?? []]));
   let progressed = true;
   while (progressed) {
@@ -89,26 +105,41 @@ const validateSteps = (steps: readonly WorkflowStep[]): void => {
   }
 };
 
+const recordFromMap = (stepStatuses: Map<string, StepStatus>): Record<string, StepStatus> =>
+  Object.fromEntries(stepStatuses);
+
 /**
  * Deterministic sequential workflow execution with dependency handling and
- * approval gates (FR-10, FR-11).
+ * approval gates (FR-10, FR-11). Supports serialisation via getSnapshot()
+ * and resumption by passing snapshot on construction.
  */
 export const createWorkflowRun = ({
   definition,
   factory,
   artifactStore,
   logger,
+  snapshot,
 }: WorkflowRunInit): WorkflowRun => {
-  const id = randomUUID();
-  const stepStatuses = new Map<string, StepStatus>(
-    definition.steps.map((step) => [step.id, 'pending']),
-  );
-  const approvedSteps = new Set<string>();
+  const id = snapshot?.id ?? randomUUID();
+  const createdAt = snapshot?.createdAt ?? new Date().toISOString();
+  let updatedAt = snapshot?.updatedAt ?? createdAt;
 
-  let status: WorkflowStatus = 'pending';
-  let startedAt: string | null = null;
-  let pendingApprovalStepId: string | null = null;
-  let error: string | null = null;
+  const stepStatuses = new Map<string, StepStatus>(
+    snapshot
+      ? Object.entries(snapshot.stepStatuses)
+      : definition.steps.map((step) => [step.id, 'pending' as StepStatus]),
+  );
+  const approvedSteps = new Set<string>(snapshot?.approvedStepIds ?? []);
+
+  let status: WorkflowStatus = snapshot?.status ?? 'pending';
+  let startedAt: string | null = snapshot?.startedAt ?? null;
+  let pendingApprovalStepId: string | null = snapshot?.pendingApprovalStepId ?? null;
+  let error: string | null = snapshot?.error ?? null;
+  let workflowInput: TaskInput = snapshot?.workflowInput ?? {};
+
+  const touch = () => {
+    updatedAt = new Date().toISOString();
+  };
 
   const nextReadyStep = (): WorkflowStep | undefined =>
     definition.steps.find(
@@ -119,6 +150,7 @@ export const createWorkflowRun = ({
 
   const executeStep = async (step: WorkflowStep, input: TaskInput): Promise<boolean> => {
     stepStatuses.set(step.id, 'in_progress');
+    touch();
     logger.info(`workflow step started`, { workflowId: id, stepId: step.id });
 
     const context = createAgentContext({
@@ -137,6 +169,7 @@ export const createWorkflowRun = ({
     if (!isAgentRunResult(result)) {
       stepStatuses.set(step.id, 'failed');
       error = `Step "${step.id}" produced a malformed result that does not conform to AgentRunResult.`;
+      touch();
       logger.error(error, { workflowId: id, stepId: step.id });
       return false;
     }
@@ -144,6 +177,7 @@ export const createWorkflowRun = ({
     if (result.status === 'failure') {
       stepStatuses.set(step.id, 'failed');
       error = result.summary;
+      touch();
       logger.error(`workflow step failed`, {
         workflowId: id,
         stepId: step.id,
@@ -160,32 +194,51 @@ export const createWorkflowRun = ({
       content: result,
     });
     stepStatuses.set(step.id, 'completed');
+    touch();
     logger.info(`workflow step completed`, { workflowId: id, stepId: step.id });
     return true;
   };
 
   const runLoop = async (input: TaskInput): Promise<void> => {
     status = 'running';
+    touch();
 
     for (let step = nextReadyStep(); step; step = nextReadyStep()) {
       const succeeded = await executeStep(step, input);
       if (!succeeded) {
         status = 'failed';
+        touch();
         return;
       }
       if (step.requiresApproval && !approvedSteps.has(step.id)) {
         pendingApprovalStepId = step.id;
         status = 'needs_review';
+        touch();
         logger.info(`workflow paused for review`, { workflowId: id, stepId: step.id });
         return;
       }
     }
 
     status = 'completed';
+    pendingApprovalStepId = null;
+    touch();
     logger.info(`workflow completed`, { workflowId: id });
   };
 
-  let workflowInput: TaskInput = {};
+  const buildSnapshot = (): WorkflowRunSnapshot => ({
+    id,
+    definitionId: definition.id,
+    projectId: definition.projectId,
+    status,
+    startedAt,
+    pendingApprovalStepId,
+    error,
+    stepStatuses: recordFromMap(stepStatuses),
+    approvedStepIds: [...approvedSteps],
+    workflowInput,
+    createdAt,
+    updatedAt,
+  });
 
   return {
     id,
@@ -206,6 +259,7 @@ export const createWorkflowRun = ({
       if (!stepStatus) throw new Error(`Unknown step "${stepId}".`);
       return stepStatus;
     },
+    getSnapshot: buildSnapshot,
     start: async (input) => {
       if (status !== 'pending') {
         throw new Error(
@@ -215,6 +269,7 @@ export const createWorkflowRun = ({
       validateSteps(definition.steps);
       workflowInput = input;
       startedAt = new Date().toISOString();
+      touch();
       await runLoop(input);
     },
     approve: async (stepId) => {
@@ -228,6 +283,7 @@ export const createWorkflowRun = ({
       }
       approvedSteps.add(stepId);
       pendingApprovalStepId = null;
+      touch();
       logger.info(`workflow step approved`, { workflowId: id, stepId });
       await runLoop(workflowInput);
     },

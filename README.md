@@ -12,8 +12,30 @@ Four layers (see the PRD for details):
 - **Agent factory** (`src/core/agent-factory.ts`) — maps agent types to constructors, injects shared services. Registry of the seven V1 agents is in `src/agents/registry.ts`.
 - **Workflow runner** (`src/core/workflow-runner.ts`) — deterministic sequential execution with dependency handling; pauses in `needs_review` after approval-gated steps so the operator reviews actual output.
 - **Artifact store** (`src/core/artifact-store.ts`) — in-memory and file-based implementations behind one contract-tested interface.
+- **Workflow run store** (`src/core/workflow-run-store.ts`) — persists serialisable run snapshots so approval can happen in a separate HTTP request.
 
 The seven agents: project manager, research, designer, tech lead, full-stack engineer, QA, client growth. Three V1 workflows in `src/workflows/`: Lead → Outreach, Intake → Project Brief, Brief → Build Plan.
+
+## Workflow API
+
+Run a full multi-agent workflow end-to-end (with approval gates):
+
+```bash
+# Start Lead → Outreach
+curl -X POST http://localhost:3000/api/workflows/lead-to-outreach/run \
+  -H "Content-Type: application/json" \
+  -d '{"projectId":"proj-1","input":{"leadName":"Acme Corp"}}'
+
+# Check status and artifacts (use run.id from the response)
+curl http://localhost:3000/api/workflows/runs/<runId>
+
+# Approve the paused step (use pendingApprovalStepId from the response)
+curl -X POST http://localhost:3000/api/workflows/runs/<runId>/approve \
+  -H "Content-Type: application/json" \
+  -d '{"stepId":"draft-outreach"}'
+```
+
+Workflow ids: `lead-to-outreach`, `intake-to-project-brief`, `brief-to-build-plan`.
 
 ## Setup
 

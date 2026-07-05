@@ -13,6 +13,9 @@ coverage/
 # artifacts produced by the file-based artifact store
 .artifacts/
 
+# workflow run snapshots produced by the file-based run store
+.workflow-runs/
+
 *.log
 .DS_Store
 *.tsbuildinfo
