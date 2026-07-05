@@ -74,3 +74,53 @@ describe("HTTP server end-to-end (FR-15, AC-14/AC-16 over HTTP)", () => {
     });
   });
 });
+
+describe("Approval UI static file serving", () => {
+  it("serves index.html at GET / with an HTML content-type", async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("<!doctype html>");
+  });
+
+  it("serves app.js with a JavaScript content-type", async () => {
+    const res = await fetch(`${baseUrl}/app.js`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/javascript/);
+  });
+
+  it("answers HEAD /app.js (curl -I) with 200 and no body", async () => {
+    const res = await fetch(`${baseUrl}/app.js`, { method: "HEAD" });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/javascript/);
+    expect(await res.text()).toBe("");
+  });
+
+  it("serves styles.css with a CSS content-type", async () => {
+    const res = await fetch(`${baseUrl}/styles.css`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/css");
+  });
+
+  it("rejects encoded path-traversal without leaking file contents", async () => {
+    const res = await fetch(`${baseUrl}/..%2f..%2fpackage.json`);
+    expect(res.status).not.toBe(200);
+    const body = await res.text();
+    expect(body).not.toContain('"name": "fabel"');
+  });
+
+  it("rejects traversal that escapes the web root", async () => {
+    const res = await fetch(`${baseUrl}/..%2f..%2fserver.ts`, {
+      redirect: "manual",
+    });
+    expect(res.status).not.toBe(200);
+    const body = await res.text();
+    expect(body).not.toContain("createAgentServer");
+  });
+
+  it("404s an unknown static asset without leaving the API contract", async () => {
+    const res = await fetch(`${baseUrl}/does-not-exist.js`);
+    expect(res.status).toBe(404);
+  });
+});

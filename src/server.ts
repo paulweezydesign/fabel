@@ -1,7 +1,69 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, extname, join, normalize, sep } from "node:path";
 import { createApp, type App } from "./app.js";
 import { handleAgentRun, type HttpResult } from "./api/agent-run-handler.js";
 import { workflows } from "./workflows/index.js";
+
+/** A raw (non-JSON) HTTP response used to serve the static Approval UI. */
+interface StaticResult {
+  readonly status: number;
+  readonly contentType: string;
+  readonly body: string | Buffer;
+}
+
+const isStaticResult = (
+  result: HttpResult | StaticResult,
+): result is StaticResult => "contentType" in result;
+
+/**
+ * Root of the vanilla Approval UI. Resolved relative to this module so it works
+ * both under `tsx` (from `src`) and when compiled to `dist`.
+ */
+const webRoot = join(dirname(fileURLToPath(import.meta.url)), "web");
+
+const CONTENT_TYPES: Readonly<Record<string, string>> = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
+
+const notFound: StaticResult = {
+  status: 404,
+  contentType: "application/json",
+  body: JSON.stringify({ error: "Not found" }),
+};
+
+/**
+ * Serves a file from {@link webRoot}. Path traversal is rejected: the requested
+ * path is resolved against the web root and any result that escapes it -> 404.
+ */
+const serveStatic = async (pathname: string): Promise<StaticResult> => {
+  let requested: string;
+  try {
+    requested = decodeURIComponent(pathname);
+  } catch {
+    return notFound;
+  }
+  const relative =
+    requested === "/" ? "index.html" : requested.replace(/^\/+/, "");
+  const resolved = normalize(join(webRoot, relative));
+  if (resolved !== webRoot && !resolved.startsWith(webRoot + sep)) {
+    return notFound;
+  }
+  try {
+    const body = await readFile(resolved);
+    const contentType =
+      CONTENT_TYPES[extname(resolved)] ?? "application/octet-stream";
+    return { status: 200, contentType, body };
+  } catch {
+    return notFound;
+  }
+};
 
 const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
   const chunks: Buffer[] = [];
@@ -15,7 +77,7 @@ const readJsonBody = async (req: IncomingMessage): Promise<unknown> => {
 const route = async (
   req: IncomingMessage,
   app: App,
-): Promise<HttpResult> => {
+): Promise<HttpResult | StaticResult> => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const parts = url.pathname.split("/").filter(Boolean);
   const method = req.method ?? "GET";
@@ -120,6 +182,15 @@ const route = async (
     return { status: 200, body: artifacts };
   }
 
+  // Static Approval UI: any GET/HEAD not under /api and not /health.
+  if (
+    (method === "GET" || method === "HEAD") &&
+    parts[0] !== "api" &&
+    url.pathname !== "/health"
+  ) {
+    return serveStatic(url.pathname);
+  }
+
   return { status: 404, body: { error: "Not found" } };
 };
 
@@ -127,9 +198,15 @@ const route = async (
 export const createAgentServer = (app: App = createApp()): Server =>
   createServer((req, res) => {
     route(req, app)
-      .then(({ status, body }) => {
-        res.writeHead(status, { "content-type": "application/json" });
-        res.end(JSON.stringify(body));
+      .then((result) => {
+        if (isStaticResult(result)) {
+          res.writeHead(result.status, { "content-type": result.contentType });
+          // HEAD requests carry no body (curl -I, health checks).
+          res.end(req.method === "HEAD" ? undefined : result.body);
+          return;
+        }
+        res.writeHead(result.status, { "content-type": "application/json" });
+        res.end(JSON.stringify(result.body));
       })
       .catch((error: unknown) => {
         res.writeHead(500, { "content-type": "application/json" });

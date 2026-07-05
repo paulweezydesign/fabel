@@ -12,6 +12,11 @@ pnpm install
 pnpm run dev        # standalone Node API server on http://localhost:3000
 ```
 
+Then open the **Approval UI** at [http://localhost:3000/](http://localhost:3000/):
+a dependency-free page (served from `src/web/`) to start a workflow, watch its
+steps, review artifacts, and click **Approve** on the paused gate to complete
+the run. It talks to the same JSON API documented below.
+
 Run a workflow end-to-end (pauses at the approval gate, then resume via API):
 
 ```bash
@@ -37,13 +42,13 @@ curl -s -X POST localhost:3000/api/agents/research/run \
 
 ## Scripts
 
-| Command | Purpose |
-|---|---|
-| `pnpm run dev` | Run the API server with hot reload (`PORT`, default 3000) |
-| `pnpm test` | Run the Vitest suite |
-| `pnpm run typecheck` | Type-check with `tsc --noEmit` |
-| `pnpm run lint` | Lint with ESLint |
-| `pnpm run build` | Emit `dist/` |
+| Command              | Purpose                                                   |
+| -------------------- | --------------------------------------------------------- |
+| `pnpm run dev`       | Run the API server with hot reload (`PORT`, default 3000) |
+| `pnpm test`          | Run the Vitest suite                                      |
+| `pnpm run typecheck` | Type-check with `tsc --noEmit`                            |
+| `pnpm run lint`      | Lint with ESLint                                          |
+| `pnpm run build`     | Emit `dist/`                                              |
 
 ## Design
 
