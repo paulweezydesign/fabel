@@ -11,7 +11,7 @@ import {
   type WorkflowRunStore,
 } from '@/core/workflow-run-store';
 import { defaultAgentRegistry } from '@/agents/registry';
-import { createNimAiClientFromEnv } from '@/services/nim-ai-client';
+import { createAiClientFromEnv } from '@/services/ai-client-factory';
 import { createConsoleLogger, type Logger } from '@/services/logger';
 import { createInMemoryMessageBus } from '@/services/message-bus';
 import { createWorkflowService, type WorkflowService } from './workflow-service';
@@ -30,7 +30,7 @@ const isProduction = () => process.env.NODE_ENV === 'production';
 
 /**
  * Lazy singleton so importing route modules never touches env vars at
- * build time — the NIM key is only read on the first request.
+ * build time — provider credentials are only read on the first request.
  */
 export const getServerServices = (): ServerServices => {
   if (cached) return cached;
@@ -46,7 +46,7 @@ export const getServerServices = (): ServerServices => {
   const factory = createAgentFactory({
     registry: defaultAgentRegistry,
     services: {
-      ai: createNimAiClientFromEnv(),
+      ai: createAiClientFromEnv(),
       logger,
       messageBus: createInMemoryMessageBus(),
     },
