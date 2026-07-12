@@ -1,6 +1,10 @@
 # fabel
 
+[![CI](https://github.com/paulweezydesign/fabel/actions/workflows/ci.yml/badge.svg)](https://github.com/paulweezydesign/fabel/actions/workflows/ci.yml)
+
 V1 Agent-Powered Agency Platform — specialized AI agents collaborating on research, strategy documents, code and client outreach, orchestrated by a lightweight workflow runner with human approval gates.
+
+CI runs on every push and pull request (`npm test`, `npm run typecheck`, `npx next build`). No API keys are required — tests stub the AI client.
 
 The full spec lives in [`prd/v1-agent-powered-agency-platform.md`](prd/v1-agent-powered-agency-platform.md).
 
@@ -56,6 +60,7 @@ The AI provider is NVIDIA NIM (OpenAI-compatible), default model `nvidia/nemotro
 
 ```bash
 npm test             # full Vitest suite (no network — AI is stubbed)
+npm run test:coverage  # same suite with coverage thresholds
 npm run typecheck
 npm run dev          # Next.js dev server
 npm run build && npm start
