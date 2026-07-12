@@ -19,6 +19,15 @@ export interface WorkflowRunDetail {
   readonly artifacts: readonly Artifact[];
 }
 
+export interface WorkflowRunSummary {
+  readonly id: string;
+  readonly definitionId: string;
+  readonly projectId: string;
+  readonly status: WorkflowRunSnapshot['status'];
+  readonly startedAt: string | null;
+  readonly updatedAt: string;
+}
+
 export type TaskScheduler = (task: () => Promise<void>) => void;
 
 export interface DeferredTaskQueue {
@@ -48,6 +57,7 @@ export interface WorkflowService {
     options: { projectId: string; input: TaskInput },
   ): Promise<WorkflowRunSnapshot>;
   getRun(runId: string): Promise<WorkflowRunDetail>;
+  listRuns(): Promise<readonly WorkflowRunSummary[]>;
   approve(runId: string, stepId: string): Promise<WorkflowRunSnapshot>;
   listDefinitions(): WorkflowDefinitionMeta[];
 }
@@ -70,6 +80,15 @@ const runningResponse = (
   startedAt: snapshot.startedAt ?? new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   ...overrides,
+});
+
+const toRunSummary = (snapshot: WorkflowRunSnapshot): WorkflowRunSummary => ({
+  id: snapshot.id,
+  definitionId: snapshot.definitionId,
+  projectId: snapshot.projectId,
+  status: snapshot.status,
+  startedAt: snapshot.startedAt,
+  updatedAt: snapshot.updatedAt,
 });
 
 export const createWorkflowService = ({
@@ -145,6 +164,11 @@ export const createWorkflowService = ({
       }
       const artifacts = await artifactStore.listByWorkflow(runId);
       return { run: snapshot, artifacts };
+    },
+
+    listRuns: async () => {
+      const snapshots = await runStore.list();
+      return snapshots.map(toRunSummary);
     },
 
     approve: async (runId, stepId) => {

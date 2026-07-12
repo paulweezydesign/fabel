@@ -6,14 +6,15 @@ import type { WorkflowRunSnapshot } from '@/core/workflow-runner';
 import {
   buildStepTimeline,
   canApproveRun,
-  formatArtifactContent,
   shouldPollRun,
   statusLabel,
 } from '@/client/dashboard-state';
+import { formatArtifactForDisplay } from '@/client/artifact-renderer';
 import {
   createWorkflowClient,
   WorkflowClientError,
   type WorkflowRunDetail,
+  type WorkflowRunSummary,
 } from '@/client/workflow-client';
 import {
   listWorkflowDefinitionMeta,
@@ -35,6 +36,8 @@ export function OperatorDashboard() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<WorkflowRunDetail | null>(null);
+  const [pastRuns, setPastRuns] = useState<readonly WorkflowRunSummary[]>([]);
+  const [loadingPastRuns, setLoadingPastRuns] = useState(true);
 
   const run = detail?.run ?? null;
   const artifacts = detail?.artifacts ?? [];
@@ -54,6 +57,34 @@ export function OperatorDashboard() {
     setDetail(next);
     return next;
   }, []);
+
+  const refreshPastRuns = useCallback(async () => {
+    try {
+      const runs = await client.listRuns();
+      setPastRuns(runs);
+    } catch {
+      /* list failures are non-blocking; operator can still start a new run */
+    } finally {
+      setLoadingPastRuns(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPastRuns();
+  }, [refreshPastRuns]);
+
+  const handleSelectPastRun = async (runId: string) => {
+    setError(null);
+    setPhase('ready');
+
+    try {
+      await loadDetail(runId);
+    } catch (err) {
+      setDetail(null);
+      setPhase('idle');
+      setError(err instanceof WorkflowClientError ? err.message : 'Failed to load workflow run.');
+    }
+  };
 
   useEffect(() => {
     if (!run || !shouldPollRun(run)) return;
@@ -84,6 +115,7 @@ export function OperatorDashboard() {
       setDetail({ run: started, artifacts: [] });
       setPhase('ready');
       void loadDetail(started.id);
+      void refreshPastRuns();
     } catch (err) {
       setPhase('idle');
       setDetail(null);
@@ -114,6 +146,7 @@ export function OperatorDashboard() {
     setDetail(null);
     setError(null);
     setPhase('idle');
+    void refreshPastRuns();
   };
 
   const busy = phase === 'starting' || phase === 'approving';
@@ -128,6 +161,46 @@ export function OperatorDashboard() {
 
       {!run && (
         <>
+          <section className="panel">
+            <h2>Past runs</h2>
+            {loadingPastRuns ? (
+              <p className="empty-state">Loading run history…</p>
+            ) : pastRuns.length === 0 ? (
+              <p className="empty-state">No past runs yet — start a workflow below.</p>
+            ) : (
+              <ul className="run-history-list">
+                {pastRuns.map((pastRun) => (
+                  <li key={pastRun.id}>
+                    <button
+                      type="button"
+                      className="run-history-item"
+                      onClick={() => handleSelectPastRun(pastRun.id)}
+                      disabled={busy}
+                    >
+                      <span className="run-history-main">
+                        <strong>{pastRun.definitionId}</strong>
+                        <span className={`status-badge ${pastRun.status}`}>
+                          {statusLabel(pastRun.status)}
+                        </span>
+                      </span>
+                      <span className="run-history-meta">
+                        <span>
+                          Project <code>{pastRun.projectId}</code>
+                        </span>
+                        <span>
+                          Run <code>{pastRun.id.slice(0, 8)}…</code>
+                        </span>
+                        {pastRun.updatedAt && (
+                          <span>{new Date(pastRun.updatedAt).toLocaleString()}</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section className="panel">
             <h2>Choose a workflow</h2>
             <div className="workflow-grid">
@@ -253,15 +326,44 @@ export function OperatorDashboard() {
               </p>
             ) : (
               <div className="artifact-list">
-                {artifacts.map((artifact: Artifact) => (
-                  <article key={artifact.id} className="artifact-card">
-                    <header>
-                      <strong>{artifact.title}</strong>
-                      <span>{artifact.agentType.replace(/_/g, ' ')}</span>
-                    </header>
-                    <pre>{formatArtifactContent(artifact.content)}</pre>
-                  </article>
-                ))}
+                {artifacts.map((artifact: Artifact) => {
+                  const display = formatArtifactForDisplay(artifact.content);
+                  return (
+                    <article key={artifact.id} className="artifact-card">
+                      <header>
+                        <strong>{artifact.title}</strong>
+                        <span>{artifact.agentType.replace(/_/g, ' ')}</span>
+                      </header>
+                      <div className="artifact-body">
+                        <p className="artifact-summary">{display.summary}</p>
+                        {display.highlights.length > 0 && (
+                          <dl className="artifact-highlights">
+                            {display.highlights.map((highlight) => (
+                              <div key={highlight.label} className="artifact-highlight">
+                                <dt>{highlight.label}</dt>
+                                <dd>
+                                  {Array.isArray(highlight.value) ? (
+                                    <ul>
+                                      {highlight.value.map((item) => (
+                                        <li key={item}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <p>{highlight.value}</p>
+                                  )}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+                        <details className="artifact-raw">
+                          <summary>Raw JSON</summary>
+                          <pre>{display.raw}</pre>
+                        </details>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>

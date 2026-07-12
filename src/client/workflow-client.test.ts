@@ -48,6 +48,35 @@ describe('createWorkflowClient', () => {
     });
   });
 
+  it('lists runs via GET /api/workflows/runs', async () => {
+    const runs = [
+      {
+        id: 'run-2',
+        definitionId: 'intake-to-project-brief',
+        projectId: 'proj-2',
+        status: 'completed',
+        startedAt: '2026-07-05T11:00:00.000Z',
+        updatedAt: '2026-07-05T11:05:00.000Z',
+      },
+      {
+        id: 'run-1',
+        definitionId: 'lead-to-outreach',
+        projectId: 'proj-1',
+        status: 'needs_review',
+        startedAt: '2026-07-05T10:00:00.000Z',
+        updatedAt: '2026-07-05T10:01:00.000Z',
+      },
+    ];
+    const fetchMock = vi.fn(async () => jsonResponse({ runs }));
+
+    const client = createWorkflowClient(fetchMock);
+    const result = await client.listRuns();
+
+    expect(result).toEqual(runs);
+    const [url] = fetchMock.mock.calls[0] as unknown as [string, RequestInit?];
+    expect(url).toBe('/api/workflows/runs');
+  });
+
   it('fetches run detail via GET /api/workflows/runs/:runId', async () => {
     const detail = { run: sampleRun(), artifacts: [{ id: 'a-1', title: 'Research' }] };
     const fetchMock = vi.fn(async () => jsonResponse(detail));

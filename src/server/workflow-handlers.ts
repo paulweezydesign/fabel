@@ -61,6 +61,18 @@ export const createWorkflowRunHandler =
     }
   };
 
+export const createWorkflowRunsListHandler =
+  ({ service }: { service: WorkflowService }) =>
+  async (_request: Request): Promise<Response> => {
+    try {
+      const runs = await service.listRuns();
+      return json(200, { runs });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return json(500, { error: message });
+    }
+  };
+
 export const createWorkflowApproveHandler =
   ({ service }: { service: WorkflowService }) =>
   async (request: Request, { runId }: RunParams): Promise<Response> => {

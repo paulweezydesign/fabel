@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createWorkflowApproveHandler,
   createWorkflowRunHandler,
+  createWorkflowRunsListHandler,
   createWorkflowStartHandler,
 } from './workflow-handlers';
 import {
@@ -41,6 +42,7 @@ const makeHandlers = () => {
   return {
     start: createWorkflowStartHandler({ service }),
     get: createWorkflowRunHandler({ service }),
+    list: createWorkflowRunsListHandler({ service }),
     approve: createWorkflowApproveHandler({ service }),
     queue,
   };
@@ -152,6 +154,35 @@ describe('workflow API handlers', () => {
     const { get } = makeHandlers();
     const response = await get(new Request('http://test'), { runId: 'missing' });
     expect(response.status).toBe(404);
+  });
+
+  it('GET /api/workflows/runs lists all runs with summary fields', async () => {
+    const handlers = makeHandlers();
+    const started = await (
+      await handlers.start(
+        new Request('http://test/api/workflows/lead-to-outreach/run', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectId: 'proj-1', input: {} }),
+        }),
+        { id: 'lead-to-outreach' },
+      )
+    ).json();
+    await handlers.queue.flush();
+
+    const response = await handlers.list(new Request('http://test'));
+    expect(response.status).toBe(200);
+
+    const payload = await response.json();
+    expect(payload.runs).toHaveLength(1);
+    expect(payload.runs[0]).toEqual({
+      id: started.run.id,
+      definitionId: 'lead-to-outreach',
+      projectId: 'proj-1',
+      status: 'needs_review',
+      startedAt: expect.any(String),
+      updatedAt: expect.any(String),
+    });
   });
 
   it('returns 400 when approve body omits stepId', async () => {

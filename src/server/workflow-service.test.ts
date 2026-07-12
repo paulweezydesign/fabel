@@ -129,6 +129,46 @@ describe('WorkflowService', () => {
     ]);
   });
 
+  it('lists all runs newest first with summary fields', async () => {
+    const { service, runStore, queue } = makeService();
+
+    const first = await service.start('lead-to-outreach', {
+      projectId: 'proj-1',
+      input: { leadName: 'First' },
+    });
+    await queue.flush();
+
+    const second = await service.start('intake-to-project-brief', {
+      projectId: 'proj-2',
+      input: { client: 'Second' },
+    });
+    await queue.flush();
+
+    const firstSnapshot = (await runStore.getById(first.id))!;
+    const secondSnapshot = (await runStore.getById(second.id))!;
+    await runStore.save({ ...firstSnapshot, updatedAt: '2026-07-05T10:00:00.000Z' });
+    await runStore.save({ ...secondSnapshot, updatedAt: '2026-07-05T11:00:00.000Z' });
+
+    const runs = await service.listRuns();
+
+    expect(runs).toHaveLength(2);
+    expect(runs[0].id).toBe(second.id);
+    expect(runs[1].id).toBe(first.id);
+    expect(runs[0]).toEqual({
+      id: second.id,
+      definitionId: 'intake-to-project-brief',
+      projectId: 'proj-2',
+      status: 'needs_review',
+      startedAt: expect.any(String),
+      updatedAt: '2026-07-05T11:00:00.000Z',
+    });
+  });
+
+  it('returns an empty list when no runs exist', async () => {
+    const { service } = makeService();
+    expect(await service.listRuns()).toEqual([]);
+  });
+
   it('runs intake-to-project-brief through its approval gate', async () => {
     const { service, queue } = makeService();
     const run = await service.start('intake-to-project-brief', {
