@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Artifact } from '@/core/artifact-store';
-import type { WorkflowRunSnapshot } from '@/core/workflow-runner';
+import { formatApprovalToast } from '@/client/approval-ui';
 import {
   buildStepTimeline,
   canApproveRun,
@@ -10,6 +10,8 @@ import {
   statusLabel,
 } from '@/client/dashboard-state';
 import { formatArtifactForDisplay } from '@/client/artifact-renderer';
+import { ApprovalGatePanel } from '@/components/approval-gate-panel';
+import { Toast, useToast } from '@/components/toast';
 import {
   createWorkflowClient,
   WorkflowClientError,
@@ -38,6 +40,7 @@ export function OperatorDashboard() {
   const [detail, setDetail] = useState<WorkflowRunDetail | null>(null);
   const [pastRuns, setPastRuns] = useState<readonly WorkflowRunSummary[]>([]);
   const [loadingPastRuns, setLoadingPastRuns] = useState(true);
+  const { toast, showToast } = useToast();
 
   const run = detail?.run ?? null;
   const artifacts = detail?.artifacts ?? [];
@@ -119,7 +122,10 @@ export function OperatorDashboard() {
     } catch (err) {
       setPhase('idle');
       setDetail(null);
-      setError(err instanceof WorkflowClientError ? err.message : 'Failed to start workflow.');
+      const message =
+        err instanceof WorkflowClientError ? err.message : 'Failed to start workflow.';
+      setError(message);
+      showToast(`Failed to start: ${message}`, 'error');
     }
   };
 
@@ -135,10 +141,14 @@ export function OperatorDashboard() {
         current ? { ...current, run: approved } : { run: approved, artifacts: [] },
       );
       setPhase('ready');
+      showToast(formatApprovalToast(approved), 'success');
       void loadDetail(approved.id);
     } catch (err) {
       setPhase('ready');
-      setError(err instanceof WorkflowClientError ? err.message : 'Failed to approve workflow.');
+      const message =
+        err instanceof WorkflowClientError ? err.message : 'Failed to approve workflow.';
+      setError(message);
+      showToast(`Approval failed: ${message}`, 'error');
     }
   };
 
@@ -280,17 +290,32 @@ export function OperatorDashboard() {
 
             <ol className="step-list">
               {timeline.map((step) => (
-                <li key={step.id} className="step-item">
+                <li
+                  key={step.id}
+                  className={`step-item${step.awaitingApproval ? ' step-item--gate' : ''}`}
+                >
                   <span className={`step-dot ${step.status}`} aria-hidden />
                   <div className="step-body">
                     <strong>{step.title}</strong>
                     <small>
                       {step.agentType.replace(/_/g, ' ')} · {step.status.replace(/_/g, ' ')}
+                      {step.requiresApproval ? ' · approval gate' : ''}
                     </small>
                     {step.awaitingApproval && (
                       <span className="approval-tag">Awaiting your approval</span>
                     )}
                   </div>
+                  {step.awaitingApproval && (
+                    <button
+                      type="button"
+                      className="btn-approve btn-approve--inline"
+                      onClick={handleApprove}
+                      disabled={busy}
+                    >
+                      {phase === 'approving' && <span className="spinner" />}
+                      Approve
+                    </button>
+                  )}
                 </li>
               ))}
             </ol>
@@ -317,6 +342,15 @@ export function OperatorDashboard() {
               </button>
             </div>
           </section>
+
+          <ApprovalGatePanel
+            run={run}
+            definition={definition}
+            artifacts={artifacts}
+            onApprove={handleApprove}
+            approving={phase === 'approving'}
+            busy={busy}
+          />
 
           <section className="panel">
             <h2>Artifacts</h2>
@@ -371,6 +405,7 @@ export function OperatorDashboard() {
       )}
 
       {error && <div className="error-banner">{error}</div>}
+      <Toast toast={toast} />
     </div>
   );
 }

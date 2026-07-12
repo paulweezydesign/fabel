@@ -233,6 +233,22 @@ button:disabled {
   color: #0f1117;
 }
 
+.btn-approve {
+  background: var(--success);
+  color: #0f1117;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.btn-approve:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-approve--inline {
+  margin-left: auto;
+  align-self: center;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -281,6 +297,12 @@ button:disabled {
   background: var(--surface-2);
   border-radius: 8px;
   border: 1px solid var(--border);
+}
+
+.step-item--gate {
+  border-color: var(--warning);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 55%, transparent) inset;
+  align-items: center;
 }
 
 .step-dot {
@@ -480,4 +502,106 @@ button:disabled {
   to {
     transform: rotate(360deg);
   }
+}
+
+.approval-gate-panel {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 25%, transparent);
+}
+
+.approval-gate-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.approval-gate-panel__hint {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.approval-gate-panel__step {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.approval-gate-panel__step-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.approval-gate-panel__content {
+  margin-top: 1rem;
+  padding: 1rem 1.125rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.approval-gate-panel__content--outreach_message {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.approval-gate-panel__content-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.approval-gate-panel__headline {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.approval-gate-panel__content--outreach_message .approval-gate-panel__headline {
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.approval-gate-panel__detail {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  max-width: min(90vw, 28rem);
+  text-align: center;
+}
+
+.toast--success {
+  background: var(--success);
+  color: #0f1117;
+}
+
+.toast--error {
+  background: var(--danger);
+  color: #fff;
 }
