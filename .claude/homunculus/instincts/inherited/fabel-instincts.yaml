@@ -1,0 +1,469 @@
+# Instincts generated from https://github.com/paulweezydesign/fabel
+# Generated: 2026-07-04T18:42:54.522Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: fabel-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Commit Length
+
+## Action
+
+Write moderate-length commit messages (~74 characters)
+
+## Evidence
+
+- Average commit message length: 74 chars
+- Based on 6 commits
+
+---
+id: fabel-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Naming Files
+
+## Action
+
+Use kebab-case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: kebab-case
+
+---
+id: fabel-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: fabel-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: fabel-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: core, services, testing
+
+---
+id: fabel-test-colocate
+trigger: "when writing tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Test Colocate
+
+## Action
+
+Place test file next to the source file (e.g., Button.test.tsx next to Button.tsx)
+
+## Evidence
+
+- Colocated test pattern detected
+- Tests live alongside source files
+
+---
+id: fabel-test-framework
+trigger: "when writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Test Framework
+
+## Action
+
+Use vitest as the test framework
+
+## Evidence
+
+- Test framework detected: vitest
+- File pattern: *.test.ts
+
+---
+id: fabel-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: fabel-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~30x per month
+- Files: src/core/*, /*, src/services/*
+
+---
+id: fabel-workflow-tdd-feature-development
+trigger: "when doing tdd feature development"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/paulweezydesign/fabel
+---
+
+# Fabel Workflow Tdd Feature Development
+
+## Action
+
+Follow the tdd-feature-development workflow:
+1. Create or update the implementation file for the new feature/service (e.g., src/core/feature.ts).
+2. Create or update the corresponding test file (e.g., src/core/feature.test.ts).
+3. If needed, add or update related service or contract files (e.g., src/services/service.ts, src/testing/doubles.ts).
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: src/core/*.ts, src/core/*.test.ts, src/services/*.ts
+
+---
+id: fabel-instinct-file-naming
+trigger: "When creating a new file in the codebase"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct File Naming
+
+## Action
+
+Name the file using kebab-case
+
+## Evidence
+
+- Pattern in namingConventions.files: kebab-case
+- All file examples follow kebab-case
+
+---
+id: fabel-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Function Naming
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: fabel-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Class Naming
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: fabel-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.9
+domain: code-style
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: fabel-instinct-relative-imports
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Relative Imports
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: fabel-instinct-named-exports
+trigger: "When exporting from a module"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Named Exports
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: fabel-instinct-test-file-pattern
+trigger: "When creating a test file"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Test File Pattern
+
+## Action
+
+Name the test file with the pattern *.test.ts and colocate it with the implementation
+
+## Evidence
+
+- Pattern in testing.filePattern: *.test.ts
+- Pattern in architecture.folderStructure.testLocation: colocated
+
+---
+id: fabel-instinct-unit-test-framework
+trigger: "When writing tests"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Unit Test Framework
+
+## Action
+
+Use Vitest as the testing framework and write unit tests
+
+## Evidence
+
+- Pattern in testing.framework: vitest
+- Pattern in testing.testTypes: unit
+
+---
+id: fabel-instinct-tdd-pairing
+trigger: "When implementing a new feature or service"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Tdd Pairing
+
+## Action
+
+Create or update both the implementation file and a corresponding test file, often in pairs
+
+## Evidence
+
+- Pattern in tdd-feature-development workflow: implementation and test files added/updated together
+- Example commits: 'Add BaseAgent lifecycle, service interfaces and test doubles (TDD, AC-2 to AC-4)'
+
+---
+id: fabel-instinct-commit-format-freeform
+trigger: "When writing a commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Commit Format Freeform
+
+## Action
+
+Use a concise, imperative, freeform message describing the change (no enforced prefix)
+
+## Evidence
+
+- Pattern in commits.type: freeform
+- Examples: 'Add PRD for V1 agent-powered agency platform', 'Scaffold Next.js/Vitest project and add core agent types (TDD, AC-1)'
+
+---
+id: fabel-instinct-commit-feature-tdd
+trigger: "When committing a new core feature or service using TDD"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Commit Feature Tdd
+
+## Action
+
+Commit the implementation file, then the test file, and if needed, related service or contract files, each as separate commits
+
+## Evidence
+
+- Pattern in tdd-feature-development.commitSequence
+- Example commits in tdd-feature-development workflow
+
+---
+id: fabel-instinct-feature-development-workflow
+trigger: "When implementing a standard feature"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Feature Development Workflow
+
+## Action
+
+Follow the sequence: add feature implementation, add tests, update documentation
+
+## Evidence
+
+- Pattern in feature-development.commitSequence
+- Example: 'Add PRD for V1 agent-powered agency platform', 'Scaffold Next.js/Vitest project and add core agent types (TDD, AC-1)'
+
+---
+id: fabel-instinct-tdd-feature-development-workflow
+trigger: "When adding a new core feature or service using TDD"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: paulweezydesign/fabel
+---
+
+# Fabel Instinct Tdd Feature Development Workflow
+
+## Action
+
+Create or update the implementation file, then the test file, and if needed, related service or contract files
+
+## Evidence
+
+- tdd-feature-development workflow definition
+- Example commit and file sequences in tdd-feature-development
+
