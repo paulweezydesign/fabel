@@ -64,7 +64,10 @@ describe('WorkflowService async execution', () => {
 
     expect(run.status).toBe('running');
     expect(run.startedAt).toBeTruthy();
-    expect((await runStore.getById(run.id))?.status).not.toBe('needs_review');
+    expect(await runStore.getById(run.id)).toMatchObject({
+      id: run.id,
+      status: 'running',
+    });
 
     await queue.flush();
 

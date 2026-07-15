@@ -113,4 +113,28 @@ describe('FileWorkflowRunStore persistence', () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it('keeps JSON readable under concurrent saves of the same run', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'workflow-runs-'));
+    try {
+      const store = createFileWorkflowRunStore(dir);
+      await Promise.all(
+        Array.from({ length: 40 }, (_, index) =>
+          store.save(
+            sampleSnapshot({
+              status: index % 2 === 0 ? 'running' : 'needs_review',
+              updatedAt: `2026-07-15T12:00:${String(index).padStart(2, '0')}.000Z`,
+            }),
+          ),
+        ),
+      );
+
+      const loaded = await store.getById('run-1');
+      expect(loaded).not.toBeNull();
+      expect(loaded?.id).toBe('run-1');
+      expect(['running', 'needs_review']).toContain(loaded?.status);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

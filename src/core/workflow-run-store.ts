@@ -1,6 +1,13 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createKeyedAsyncLock } from './async-lock';
 import type { WorkflowRunSnapshot } from './workflow-runner';
+
+const writeJsonAtomic = async (filePath: string, value: unknown): Promise<void> => {
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tempPath, JSON.stringify(value, null, 2), 'utf8');
+  await rename(tempPath, filePath);
+};
 
 export interface WorkflowRunStore {
   save(snapshot: WorkflowRunSnapshot): Promise<void>;
@@ -30,6 +37,7 @@ export const createInMemoryWorkflowRunStore = (): WorkflowRunStore => {
  */
 export const createFileWorkflowRunStore = (baseDir: string): WorkflowRunStore => {
   const fileFor = (id: string) => path.join(baseDir, `${id}.json`);
+  const withLock = createKeyedAsyncLock();
 
   const readAll = async (): Promise<WorkflowRunSnapshot[]> => {
     let files: string[];
@@ -38,20 +46,28 @@ export const createFileWorkflowRunStore = (baseDir: string): WorkflowRunStore =>
     } catch {
       return [];
     }
-    return Promise.all(
+    const snapshots = await Promise.all(
       files
         .filter((f) => f.endsWith('.json'))
-        .map(async (f) =>
-          JSON.parse(await readFile(path.join(baseDir, f), 'utf8')) as WorkflowRunSnapshot,
-        ),
+        .map(async (f) => {
+          try {
+            return JSON.parse(
+              await readFile(path.join(baseDir, f), 'utf8'),
+            ) as WorkflowRunSnapshot;
+          } catch {
+            return null;
+          }
+        }),
     );
+    return snapshots.filter((snapshot): snapshot is WorkflowRunSnapshot => snapshot !== null);
   };
 
   return {
-    save: async (snapshot) => {
-      await mkdir(baseDir, { recursive: true });
-      await writeFile(fileFor(snapshot.id), JSON.stringify(snapshot, null, 2), 'utf8');
-    },
+    save: async (snapshot) =>
+      withLock(snapshot.id, async () => {
+        await mkdir(baseDir, { recursive: true });
+        await writeJsonAtomic(fileFor(snapshot.id), snapshot);
+      }),
     getById: async (id) => {
       try {
         return JSON.parse(await readFile(fileFor(id), 'utf8')) as WorkflowRunSnapshot;

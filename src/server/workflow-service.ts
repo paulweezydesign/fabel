@@ -194,6 +194,9 @@ export const createWorkflowService = ({
         onProgress: (next) => runStore.save(next),
       });
       const pendingSnapshot = run.getSnapshot();
+      // Persist before returning so immediate polls never 404.
+      const accepted = runningResponse(pendingSnapshot, { workflowInput: input });
+      await runStore.save(accepted);
 
       runInBackground(async () => {
         const runner = createWorkflowRun({
@@ -201,14 +204,20 @@ export const createWorkflowService = ({
           factory,
           artifactStore,
           logger,
-          snapshot: pendingSnapshot,
+          snapshot: {
+            ...pendingSnapshot,
+            status: 'pending',
+            workflowInput: input,
+            startedAt: accepted.startedAt,
+            updatedAt: accepted.updatedAt,
+          },
           onProgress: (next) => runStore.save(next),
         });
         await runner.start(input);
         await persist(runner);
       });
 
-      return runningResponse(pendingSnapshot, { workflowInput: input });
+      return accepted;
     },
 
     getRun: async (runId) => {

@@ -15,43 +15,81 @@ interface NimAiClientConfig {
   baseUrl: string;
   fetchImpl?: FetchImpl;
   temperature?: number;
+  maxRetries?: number;
+  retryDelayMs?: number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 interface ChatCompletionResponse {
-  choices?: { message?: { content?: string } }[];
+  choices?: {
+    message?: {
+      content?: string | Array<{ type?: string; text?: string }>;
+    };
+  }[];
 }
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const isRetryableStatus = (status: number): boolean =>
+  status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+
+const extractContent = (payload: ChatCompletionResponse): string => {
+  const content = payload.choices?.[0]?.message?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    const text = content
+      .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+      .join('')
+      .trim();
+    if (text) return text;
+  }
+  throw new Error('NIM response contained no completion content.');
+};
 
 export const createNimAiClient = ({
   apiKey,
   model,
   baseUrl,
   fetchImpl = fetch,
-  temperature = 0.6,
+  temperature = 0.3,
+  maxRetries = 3,
+  retryDelayMs = 750,
+  sleep = defaultSleep,
 }: NimAiClientConfig): AiClient => ({
   complete: async (messages: readonly AiMessage[]): Promise<string> => {
-    const response = await fetchImpl(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ model, messages, temperature, stream: false }),
-    });
+    let attempt = 0;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
+    while (attempt <= maxRetries) {
+      const response = await fetchImpl(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ model, messages, temperature, stream: false }),
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as ChatCompletionResponse;
+        return extractContent(payload);
+      }
+
       const detail = await response.text().catch(() => '');
-      throw new Error(
+      lastError = new Error(
         `NIM chat completion failed with status ${response.status}${detail ? `: ${detail}` : ''}`,
       );
+
+      if (!isRetryableStatus(response.status) || attempt === maxRetries) {
+        throw lastError;
+      }
+
+      await sleep(retryDelayMs * 2 ** attempt);
+      attempt += 1;
     }
 
-    const payload = (await response.json()) as ChatCompletionResponse;
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') {
-      throw new Error('NIM response contained no completion content.');
-    }
-    return content;
+    throw lastError ?? new Error('NIM chat completion failed.');
   },
 });
 
