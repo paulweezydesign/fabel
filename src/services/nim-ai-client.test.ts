@@ -52,6 +52,55 @@ describe('createNimAiClient', () => {
     await expect(client.complete(messages)).rejects.toThrow(/401/);
   });
 
+  it('retries retryable 503 responses then succeeds', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('busy', { status: 503 }))
+      .mockResolvedValueOnce(okResponse('recovered'));
+    const sleep = vi.fn(async () => undefined);
+
+    const client = createNimAiClient({
+      apiKey: 'nvapi-test',
+      model: 'm',
+      baseUrl: 'https://integrate.api.nvidia.com/v1',
+      fetchImpl: fetchMock,
+      sleep,
+      retryDelayMs: 10,
+    });
+
+    await expect(client.complete(messages)).resolves.toBe('recovered');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledOnce();
+  });
+
+  it('reads text from array-shaped content parts', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: [{ type: 'text', text: '{"ok":true}' }],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    );
+
+    const client = createNimAiClient({
+      apiKey: 'nvapi-test',
+      model: 'm',
+      baseUrl: 'https://integrate.api.nvidia.com/v1',
+      fetchImpl: fetchMock,
+    });
+
+    await expect(client.complete(messages)).resolves.toBe('{"ok":true}');
+  });
+
   it('throws when the response has no completion content', async () => {
     const fetchMock = vi.fn(
       async () =>

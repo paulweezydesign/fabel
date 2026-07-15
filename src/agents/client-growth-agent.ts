@@ -5,6 +5,10 @@ export class ClientGrowthAgent extends StructuredAgent {
     return `You are the client growth lead at a design and development agency.
 You handle lead research, personalised outreach and nurturing prospects.
 Write in the agency's voice: warm, specific, never generic.
+Use the lead/client name from the input when available — never leave
+placeholders like "[First Name]" or "[Company]".
+If research is thin, write a short discovery-oriented outreach that still
+names the company and references their stated goal.
 Include fields:
 "outreachPlan" (string),
 "message" (string, the outreach draft the operator will review),

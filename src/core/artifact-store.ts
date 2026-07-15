@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createKeyedAsyncLock } from './async-lock';
 import type { AgentType } from './agent-types';
+
+const writeJsonAtomic = async (filePath: string, value: unknown): Promise<void> => {
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tempPath, JSON.stringify(value, null, 2), 'utf8');
+  await rename(tempPath, filePath);
+};
 
 /**
  * Persisted output of a workflow step (FR-12). The interface hides storage
@@ -69,6 +76,7 @@ export const createInMemoryArtifactStore = (): ArtifactStore => {
  */
 export const createFileArtifactStore = (baseDir: string): ArtifactStore => {
   const fileFor = (id: string) => path.join(baseDir, `${id}.json`);
+  const withLock = createKeyedAsyncLock();
 
   const readAll = async (): Promise<Artifact[]> => {
     let files: string[];
@@ -80,27 +88,36 @@ export const createFileArtifactStore = (baseDir: string): ArtifactStore => {
     const artifacts = await Promise.all(
       files
         .filter((f) => f.endsWith('.json'))
-        .map(async (f) => JSON.parse(await readFile(path.join(baseDir, f), 'utf8')) as Artifact),
+        .map(async (f) => {
+          try {
+            return JSON.parse(await readFile(path.join(baseDir, f), 'utf8')) as Artifact;
+          } catch {
+            return null;
+          }
+        }),
     );
-    return artifacts.sort(bySequence);
+    return artifacts
+      .filter((artifact): artifact is Artifact => artifact !== null)
+      .sort(bySequence);
   };
 
   return {
-    save: async (artifact) => {
-      await mkdir(baseDir, { recursive: true });
-      const existing = await readAll();
-      const nextSequence = existing.length
-        ? Math.max(...existing.map((a) => a.sequence)) + 1
-        : 0;
-      const saved: Artifact = {
-        ...artifact,
-        id: randomUUID(),
-        createdAt: new Date().toISOString(),
-        sequence: nextSequence,
-      };
-      await writeFile(fileFor(saved.id), JSON.stringify(saved, null, 2), 'utf8');
-      return saved;
-    },
+    save: async (artifact) =>
+      withLock('__save__', async () => {
+        await mkdir(baseDir, { recursive: true });
+        const existing = await readAll();
+        const nextSequence = existing.length
+          ? Math.max(...existing.map((a) => a.sequence)) + 1
+          : 0;
+        const saved: Artifact = {
+          ...artifact,
+          id: randomUUID(),
+          createdAt: new Date().toISOString(),
+          sequence: nextSequence,
+        };
+        await writeJsonAtomic(fileFor(saved.id), saved);
+        return saved;
+      }),
     getById: async (id) => {
       try {
         return JSON.parse(await readFile(fileFor(id), 'utf8')) as Artifact;
@@ -110,21 +127,21 @@ export const createFileArtifactStore = (baseDir: string): ArtifactStore => {
     },
     listByWorkflow: async (workflowId) =>
       (await readAll()).filter((a) => a.workflowId === workflowId),
-    update: async (id, content) => {
-      const existing = await (async () => {
+    update: async (id, content) =>
+      withLock(id, async () => {
+        let existing: Artifact | null = null;
         try {
-          return JSON.parse(await readFile(fileFor(id), 'utf8')) as Artifact;
+          existing = JSON.parse(await readFile(fileFor(id), 'utf8')) as Artifact;
         } catch {
-          return null;
+          existing = null;
         }
-      })();
-      if (!existing) {
-        throw new Error(`Artifact "${id}" not found.`);
-      }
-      const updated: Artifact = { ...existing, content };
-      await mkdir(baseDir, { recursive: true });
-      await writeFile(fileFor(id), JSON.stringify(updated, null, 2), 'utf8');
-      return updated;
-    },
+        if (!existing) {
+          throw new Error(`Artifact "${id}" not found.`);
+        }
+        const updated: Artifact = { ...existing, content };
+        await mkdir(baseDir, { recursive: true });
+        await writeJsonAtomic(fileFor(id), updated);
+        return updated;
+      }),
   };
 };

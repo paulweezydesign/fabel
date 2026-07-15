@@ -42,7 +42,9 @@ export abstract class StructuredAgent extends BaseAgent {
   }
 }
 
-export const JSON_CONTRACT = `Always respond with a single JSON object and nothing else.
+export const JSON_CONTRACT = `Always respond with a single JSON object and nothing else —
+no markdown fences, no prose before or after the object.
 The object must include a "summary" string describing what you did, and may
 include "questions" (array of strings needing human input) and "risks"
-(array of strings). Add your domain-specific fields alongside these.`;
+(array of strings). Add your domain-specific fields alongside these.
+Use double-quoted JSON keys/strings only.`;
