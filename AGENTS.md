@@ -49,3 +49,10 @@ and use the `scripts` defined in `package.json` for `dev` / `test` / `lint` /
 `build`. Update this section with any non-obvious run/startup caveats you
 discover (e.g. required env vars for the `AiClient`, or how the API server is
 started).
+
+### Auth (optional single-tenant gate)
+
+Set `FABEL_AUTH_PASSWORD` (and preferably `FABEL_AUTH_SECRET`) in `.env.local`
+to require login for `/` and `/api/**`. When unset, auth is disabled so CI and
+local smoke stay open. Session cookies are signed HMAC tokens; the Next.js
+edge `proxy.ts` enforces the gate.
