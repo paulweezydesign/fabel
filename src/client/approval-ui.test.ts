@@ -92,25 +92,96 @@ describe('extractReviewContent', () => {
       outreachArtifact({
         status: 'success',
         summary: 'Drafted outreach for Acme',
-        output: { message: 'Hi Acme — loved your recent launch.' },
+        output: {
+          message: 'Hi Acme — loved your recent launch.',
+          subject: 'Quick idea for Acme’s Q3 site',
+          nextSteps: ['Send email', 'Follow up on LinkedIn'],
+        },
         questions: [],
         risks: [],
       }),
     );
 
-    expect(review).toEqual({
+    expect(review).toMatchObject({
       kind: 'outreach_message',
       headline: 'Hi Acme — loved your recent launch.',
       detail: 'Drafted outreach for Acme',
     });
+    expect(review?.sections).toEqual([
+      { label: 'Subject', value: 'Quick idea for Acme’s Q3 site' },
+      { label: 'Next steps', value: ['Send email', 'Follow up on LinkedIn'] },
+    ]);
   });
 
-  it('falls back to summary when no outreach message exists', () => {
+  it('surfaces a project brief for intake approval gates', () => {
     const review = extractReviewContent(
       outreachArtifact({
         status: 'success',
         summary: 'Project brief composed',
-        output: { brief: 'Scope and milestones' },
+        output: {
+          briefTitle: 'Acme Q3 ecommerce rebuild',
+          brief: 'Rebuild the storefront for a Q3 launch with Shopify.',
+          goals: ['Migrate catalog', 'Improve conversion'],
+          scope: ['Theme + checkout UX'],
+          outOfScope: ['ERP integration'],
+          blockers: ['Brand assets incomplete'],
+        },
+        questions: [],
+        risks: [],
+      }),
+    );
+
+    expect(review).toMatchObject({
+      kind: 'project_brief',
+      headline: 'Acme Q3 ecommerce rebuild',
+      detail: 'Rebuild the storefront for a Q3 launch with Shopify.',
+    });
+    expect(review?.sections).toEqual(
+      expect.arrayContaining([
+        { label: 'Goals', value: ['Migrate catalog', 'Improve conversion'] },
+        { label: 'Scope', value: ['Theme + checkout UX'] },
+        { label: 'Out of scope', value: ['ERP integration'] },
+        { label: 'Blockers', value: ['Brand assets incomplete'] },
+      ]),
+    );
+  });
+
+  it('surfaces QA checklist content for build-plan approval gates', () => {
+    const review = extractReviewContent(
+      outreachArtifact({
+        status: 'success',
+        summary: 'QA checklist ready before implementation',
+        output: {
+          checklist: ['Mobile checkout', 'Empty cart state'],
+          acceptanceCriteria: ['Lighthouse a11y ≥ 90'],
+          issues: ['Missing error states on forms'],
+          readyForImplementation: false,
+        },
+        questions: [],
+        risks: [],
+      }),
+    );
+
+    expect(review).toMatchObject({
+      kind: 'build_plan_qa',
+      headline: 'QA checklist ready before implementation',
+    });
+    expect(review?.sections).toEqual(
+      expect.arrayContaining([
+        { label: 'Checklist', value: ['Mobile checkout', 'Empty cart state'] },
+        { label: 'Acceptance criteria', value: ['Lighthouse a11y ≥ 90'] },
+        { label: 'Issues', value: ['Missing error states on forms'] },
+        { label: 'Ready for implementation', value: 'No' },
+      ]),
+    );
+  });
+
+  it('falls back to summary when no structured review fields exist', () => {
+    const review = extractReviewContent(
+      outreachArtifact({
+        status: 'success',
+        summary: 'Generic agent note',
+        output: { note: 'nothing structured' },
         questions: [],
         risks: [],
       }),
@@ -118,7 +189,7 @@ describe('extractReviewContent', () => {
 
     expect(review).toEqual({
       kind: 'summary',
-      headline: 'Project brief composed',
+      headline: 'Generic agent note',
     });
   });
 

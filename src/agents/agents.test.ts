@@ -22,8 +22,14 @@ const agentCases = [
   {
     Agent: ProjectManagerAgent,
     type: AgentType.ProjectManager,
-    promptKeyword: /milestone/i,
-    payload: { milestones: [{ title: 'Kickoff' }], blockers: [] },
+    promptKeyword: /brief/i,
+    payload: {
+      briefTitle: 'Kickoff brief',
+      brief: 'Narrative',
+      goals: ['Ship'],
+      milestones: [{ title: 'Kickoff' }],
+      blockers: [],
+    },
   },
   {
     Agent: ResearchAgent,
@@ -52,14 +58,23 @@ const agentCases = [
   {
     Agent: QaAgent,
     type: AgentType.Qa,
-    promptKeyword: /acceptance criteria/i,
-    payload: { acceptanceCriteria: ['loads'], checklist: ['test on mobile'] },
+    promptKeyword: /readyForImplementation/i,
+    payload: {
+      acceptanceCriteria: ['loads'],
+      checklist: ['test on mobile'],
+      readyForImplementation: false,
+    },
   },
   {
     Agent: ClientGrowthAgent,
     type: AgentType.ClientGrowth,
-    promptKeyword: /outreach/i,
-    payload: { outreachPlan: 'Email then call', touchpoints: 2 },
+    promptKeyword: /subject/i,
+    payload: {
+      outreachPlan: 'Email then call',
+      message: 'Hi there',
+      subject: 'Quick idea',
+      touchpoints: 2,
+    },
   },
 ] as const;
 

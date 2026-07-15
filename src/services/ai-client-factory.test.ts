@@ -55,9 +55,13 @@ describe('createAiClientFromEnv', () => {
     vi.stubEnv('AI_PROVIDER', 'stub');
 
     const client = createAiClientFromEnv();
-    const reply = await client.complete(messages);
+    const reply = await client.complete([
+      { role: 'user', content: 'Task: Draft a personalised outreach plan\nInput:\n{}' },
+    ]);
+    const payload = JSON.parse(reply);
 
-    expect(reply).toBe('{}');
+    expect(payload.message).toBeTruthy();
+    expect(payload.summary).toBeTruthy();
   });
 
   it('fails fast for an unknown AI_PROVIDER', () => {

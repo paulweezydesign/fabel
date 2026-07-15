@@ -7,6 +7,7 @@ import {
   extractReviewContent,
   getGatedArtifact,
   type ReviewContent,
+  type ReviewSection,
 } from '@/client/approval-ui';
 
 interface ApprovalGatePanelProps {
@@ -24,12 +25,37 @@ const reviewLabel = (review: ReviewContent): string => {
   switch (review.kind) {
     case 'outreach_message':
       return 'Outreach message';
+    case 'project_brief':
+      return 'Project brief';
+    case 'build_plan_qa':
+      return 'QA checklist';
     case 'summary':
       return 'Summary';
     case 'fallback':
       return 'Review output';
   }
 };
+
+const SectionList = ({ sections }: { sections: readonly ReviewSection[] }) => (
+  <dl className="approval-gate-panel__sections">
+    {sections.map((section) => (
+      <div key={section.label} className="approval-gate-panel__section">
+        <dt>{section.label}</dt>
+        <dd>
+          {Array.isArray(section.value) ? (
+            <ul>
+              {section.value.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>{section.value}</p>
+          )}
+        </dd>
+      </div>
+    ))}
+  </dl>
+);
 
 export function ApprovalGatePanel({
   run,
@@ -94,6 +120,9 @@ export function ApprovalGatePanel({
           <span className="approval-gate-panel__content-label">{reviewLabel(review)}</span>
           <p className="approval-gate-panel__headline">{review.headline}</p>
           {review.detail && <p className="approval-gate-panel__detail">{review.detail}</p>}
+          {review.sections && review.sections.length > 0 && (
+            <SectionList sections={review.sections} />
+          )}
         </div>
       ) : (
         <p className="empty-state">Waiting for the gated step output…</p>
