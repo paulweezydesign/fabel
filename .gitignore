@@ -10,10 +10,11 @@ coverage/
 .env.local
 .env.*.local
 
-# artifacts produced by the file-based artifact store
-.artifacts/
+# SQLite persistence (default)
+.data/
 
-# workflow run snapshots produced by the file-based run store
+# legacy JSON file stores (FABEL_PERSISTENCE=file)
+.artifacts/
 .workflow-runs/
 
 *.log

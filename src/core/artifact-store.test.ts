@@ -8,6 +8,7 @@ import {
   type ArtifactStore,
   type NewArtifact,
 } from './artifact-store';
+import { createSqliteStores } from './sqlite-stores';
 import { AgentType } from './agent-types';
 
 const sampleArtifact = (overrides: Partial<NewArtifact> = {}): NewArtifact => ({
@@ -109,6 +110,10 @@ describeArtifactStoreContract(
   },
 );
 
+describeArtifactStoreContract('SqliteArtifactStore', async () =>
+  createSqliteStores(':memory:').artifactStore,
+);
+
 describe('FileArtifactStore persistence', () => {
   it('survives a store restart by re-reading from disk', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'artifacts-'));
@@ -120,6 +125,22 @@ describe('FileArtifactStore persistence', () => {
       const found = await reopened.getById(saved.id);
 
       expect(found).toEqual(saved);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('SqliteArtifactStore persistence', () => {
+  it('survives a store restart by re-reading from the database file', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'artifacts-sqlite-'));
+    const dbPath = path.join(dir, 'fabel.db');
+    try {
+      const first = createSqliteStores(dbPath).artifactStore;
+      const saved = await first.save(sampleArtifact());
+
+      const reopened = createSqliteStores(dbPath).artifactStore;
+      expect(await reopened.getById(saved.id)).toEqual(saved);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

@@ -66,7 +66,7 @@ cp .env.example .env.local   # then fill in your NVIDIA NIM API key
 
 The AI provider is NVIDIA NIM (OpenAI-compatible), default model `nvidia/nemotron-3-ultra-550b-a55b`. Keys are server-side only; the browser talks to agents through `POST /api/agents/<type>/run`.
 
-Workflow runs and artifacts default to **file persistence** under `.artifacts/` and `.workflow-runs/` (gitignored), so the dashboard’s past runs survive `npm run dev` restarts. Set `FABEL_PERSISTENCE=memory` for ephemeral sessions.
+Workflow runs and artifacts default to **SQLite** at `.data/fabel.db` (gitignored), so past runs survive `npm run dev` restarts in one durable database. Set `FABEL_PERSISTENCE=file` for the legacy JSON directories, or `memory` for ephemeral sessions.
 
 ### Single-tenant auth
 

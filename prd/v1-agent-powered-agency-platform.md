@@ -1,9 +1,9 @@
 # PRD: V1 Agent-Powered Agency Platform
 
-**Status:** Draft
+**Status:** Implemented (V1 prototype)
 **Project:** fabel
-**Version:** 1.0
-**Last updated:** 2026-07-04
+**Version:** 1.1
+**Last updated:** 2026-07-15
 
 ---
 
@@ -27,14 +27,13 @@ V1 of the platform solves this by providing a **cohesive multi-agent architectur
 - A single `BaseAgent` abstraction so new agents require only a system prompt and an `executeTask()` implementation — no boilerplate duplication.
 - Centralized instantiation via `AgentFactory` so shared services (AI client, message bus, artifact store, logger) are injected uniformly.
 - New workflows can be defined as data (ordered `WorkflowStep[]`) without modifying core runner code.
-- V1 persistence is deliberately simple (in-memory or file-based artifact store) with a clean interface that permits a later database migration without touching agents or the runner.
+- V1 persistence stays behind swappable `ArtifactStore` / `WorkflowRunStore` interfaces (in-memory, file, and SQLite) so storage can evolve without touching agents or the runner.
 
 ### Non-goals (V1)
 
 - Parallel task execution or conditional workflow branching.
-- Database-backed persistence.
 - Distributed message queues.
-- Multi-tenant authentication/authorization enforcement (context carries tenant IDs, but access control is out of scope).
+- Multi-tenant authentication/authorization enforcement (context carries tenant IDs; V1 ships optional single-tenant password auth only).
 
 ## 3. Users and User Stories
 
@@ -178,7 +177,7 @@ The workflow runner must be able to handle any agent's result **without agent-sp
 
 **FR-12.** Each artifact has: `id`, `workflowId`, `projectId`, producing `agentType`, `title`, and `content` (the structured output).
 
-**FR-13.** V1 ships an in-memory implementation (default) and may add a file-based one behind the same interface. The interface must not leak storage details, so a database implementation can replace it later without changes to agents or the runner.
+**FR-13.** V1 ships swappable store implementations behind one interface: in-memory, file-based JSON, and SQLite (default for durable local/dev). The interface must not leak storage details so a remote database can replace them later without changes to agents or the runner.
 
 **FR-14.** Artifacts are retrievable by workflow ID so an operator can review everything a workflow produced (US-4).
 
@@ -269,22 +268,31 @@ Per team convention, development is test-first throughout:
 
 Coverage of the acceptance criteria in §7 is the definition of done for each work item.
 
-## 10. Open Questions
+## 10. Open Questions — resolved for V1
 
-1. **AI provider and model selection** — which provider(s) does `AiClient` wrap in V1, and is per-agent model configuration needed at launch?
-2. **Approval UX** — is approval granted through a UI, an API call, or (interim) a CLI command? V1 needs at least one concrete mechanism to satisfy AC-9.
-3. **Message bus scope** — the spec includes messaging hooks, but V1 workflows are strictly sequential via the runner. Is the bus a no-op placeholder in V1, or do agents emit events (e.g., for logging/observability) from day one?
-4. **Server framework** — the HTTP layer (`/api/agents/:type/run`) needs a host framework (e.g., Next.js API routes vs. a standalone Node server). This determines the `api/` layout above.
-5. **Full-Stack Engineer output format** — "implements code tasks" could mean returning code as artifact content vs. writing files. V1 assumption: code is returned as structured artifact content, not applied to disk. Confirm.
-6. **Tenant model** — `AgentContext` carries tenant IDs but V1 has no auth. Is a hardcoded single tenant acceptable for the prototype?
+| # | Question | Decision |
+|---|----------|----------|
+| 1 | AI provider / model | Env-selected via `AI_PROVIDER`: NVIDIA NIM (default), OpenAI, or stub. Shared client; per-agent model config deferred. |
+| 2 | Approval UX | Operator dashboard + HTTP approve/edit/reject APIs (AC-9 satisfied). |
+| 3 | Message bus | In-memory bus injected; V1 workflows remain sequential via the runner (bus is a placeholder for observability). |
+| 4 | Server framework | Next.js App Router (`app/api/**`) + edge `proxy.ts` for auth gating. |
+| 5 | Full-Stack Engineer output | Structured artifact content (not written to disk). |
+| 6 | Tenant model | Optional single-tenant password auth (`FABEL_AUTH_PASSWORD`); multi-tenant enforcement still deferred. |
 
-## 11. Future Enhancements (explicitly deferred)
+### Notable deviations from the original draft
+
+- **NIM retries on 503 ResourceExhausted** — pragmatic exception to “no silent retries” for provider capacity blips; other failures remain fail-stop (FR-11).
+- **Async workflow execution** — `POST …/run` returns `running` immediately and continues in-process; dashboard polls for progress.
+- **SQLite persistence** — promoted from deferred work; available alongside memory/file behind the same store interfaces.
+
+## 11. Future Enhancements (still deferred)
 
 - Parallel task execution and conditional workflow paths.
-- Database-backed artifact persistence (interface already designed for this migration).
+- Hosted multi-tenant auth/authorization (beyond the shared-password gate).
 - Distributed message queues for agent communication.
 - Expanded agent capabilities (tool use, retrieval infrastructure beyond V1 research).
-- Retry policies and partial-workflow recovery.
+- Retry policies and partial-workflow recovery (beyond NIM 503 backoff).
+- Migration tooling from JSON file stores → SQLite / remote databases.
 
 ## 12. Success Metrics
 

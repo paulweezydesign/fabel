@@ -16,6 +16,7 @@ describe('createAiClientFromEnv', () => {
   });
 
   it('defaults to the NIM provider when AI_PROVIDER is unset', async () => {
+    vi.stubEnv('AI_PROVIDER', '');
     vi.stubEnv('NVIDIA_NIM_API_KEY', 'nvapi-test');
     const fetchMock = vi.fn(async () => okResponse('nim reply'));
 

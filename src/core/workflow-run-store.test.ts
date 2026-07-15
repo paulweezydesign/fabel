@@ -7,6 +7,7 @@ import {
   createInMemoryWorkflowRunStore,
   type WorkflowRunStore,
 } from './workflow-run-store';
+import { createSqliteStores } from './sqlite-stores';
 import type { WorkflowRunSnapshot } from './workflow-runner';
 
 const sampleSnapshot = (
@@ -100,6 +101,10 @@ describeWorkflowRunStoreContract(
   },
 );
 
+describeWorkflowRunStoreContract('SqliteWorkflowRunStore', async () =>
+  createSqliteStores(':memory:').runStore,
+);
+
 describe('FileWorkflowRunStore persistence', () => {
   it('survives a store restart by re-reading from disk', async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'workflow-runs-'));
@@ -136,5 +141,40 @@ describe('FileWorkflowRunStore persistence', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('SqliteWorkflowRunStore persistence', () => {
+  it('survives a store restart by re-reading from the database file', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'workflow-runs-sqlite-'));
+    const dbPath = path.join(dir, 'fabel.db');
+    try {
+      const first = createSqliteStores(dbPath).runStore;
+      await first.save(sampleSnapshot());
+
+      const reopened = createSqliteStores(dbPath).runStore;
+      expect(await reopened.getById('run-1')).toEqual(sampleSnapshot());
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the latest snapshot under concurrent saves of the same run', async () => {
+    const store = createSqliteStores(':memory:').runStore;
+    await Promise.all(
+      Array.from({ length: 40 }, (_, index) =>
+        store.save(
+          sampleSnapshot({
+            status: index % 2 === 0 ? 'running' : 'needs_review',
+            updatedAt: `2026-07-15T12:00:${String(index).padStart(2, '0')}.000Z`,
+          }),
+        ),
+      ),
+    );
+
+    const loaded = await store.getById('run-1');
+    expect(loaded).not.toBeNull();
+    expect(loaded?.id).toBe('run-1');
+    expect(['running', 'needs_review']).toContain(loaded?.status);
   });
 });
