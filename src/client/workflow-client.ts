@@ -1,6 +1,7 @@
 import type { Artifact } from '@/core/artifact-store';
 import type { WorkflowRunSnapshot } from '@/core/workflow-runner';
 import type { TaskInput } from '@/core/base-agent';
+import type { ApprovalEdits } from '@/client/approval-edits';
 import type { WorkflowId } from '@/workflows/catalog';
 
 export interface WorkflowRunDetail {
@@ -24,7 +25,16 @@ export interface WorkflowClient {
   ): Promise<WorkflowRunSnapshot>;
   listRuns(): Promise<readonly WorkflowRunSummary[]>;
   getRun(runId: string): Promise<WorkflowRunDetail>;
-  approve(runId: string, stepId: string): Promise<WorkflowRunSnapshot>;
+  approve(
+    runId: string,
+    stepId: string,
+    edits?: ApprovalEdits,
+  ): Promise<WorkflowRunSnapshot>;
+  editPendingArtifact(
+    runId: string,
+    stepId: string,
+    edits: ApprovalEdits,
+  ): Promise<WorkflowRunDetail>;
   reject(
     runId: string,
     stepId: string,
@@ -90,11 +100,11 @@ export const createWorkflowClient = (fetchImpl: FetchImpl = fetch): WorkflowClie
     return (await response.json()) as WorkflowRunDetail;
   },
 
-  approve: async (runId, stepId) => {
+  approve: async (runId, stepId, edits) => {
     const response = await fetchImpl(`/api/workflows/runs/${runId}/approve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ stepId }),
+      body: JSON.stringify({ stepId, edits }),
     });
     if (!response.ok) {
       throw new WorkflowClientError(
@@ -104,6 +114,21 @@ export const createWorkflowClient = (fetchImpl: FetchImpl = fetch): WorkflowClie
     }
     const payload = (await response.json()) as { run: WorkflowRunSnapshot };
     return payload.run;
+  },
+
+  editPendingArtifact: async (runId, stepId, edits) => {
+    const response = await fetchImpl(`/api/workflows/runs/${runId}/edit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ stepId, edits }),
+    });
+    if (!response.ok) {
+      throw new WorkflowClientError(
+        response.status,
+        await readError(response, `Workflow edit failed with status ${response.status}.`),
+      );
+    }
+    return (await response.json()) as WorkflowRunDetail;
   },
 
   reject: async (runId, stepId, reason) => {

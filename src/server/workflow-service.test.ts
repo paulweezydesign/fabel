@@ -114,6 +114,47 @@ describe('WorkflowService', () => {
     await expect(service.approve(paused.id, 'draft-outreach')).rejects.toThrow(/review/);
   });
 
+  it('edits the gated artifact before approval and persists the revision', async () => {
+    const { service, queue } = makeService();
+    const started = await service.start('lead-to-outreach', {
+      projectId: 'proj-1',
+      input: { leadName: 'Acme' },
+    });
+    await queue.flush();
+
+    const paused = (await service.getRun(started.id)).run;
+    const edited = await service.editPendingArtifact(
+      paused.id,
+      paused.pendingApprovalStepId!,
+      { message: 'Hi Acme — operator revised this opener.' },
+    );
+
+    expect(edited.run.status).toBe('needs_review');
+    const gated = edited.artifacts.find(
+      (artifact) => artifact.title === 'Draft a personalised outreach plan',
+    );
+    expect(gated?.content).toMatchObject({
+      output: { message: 'Hi Acme — operator revised this opener.' },
+    });
+
+    await service.approve(paused.id, paused.pendingApprovalStepId!, {
+      subject: 'Revised subject line',
+    });
+    await queue.flush();
+
+    const completed = await service.getRun(paused.id);
+    expect(completed.run.status).toBe('completed');
+    const approvedArtifact = completed.artifacts.find(
+      (artifact) => artifact.title === 'Draft a personalised outreach plan',
+    );
+    expect(approvedArtifact?.content).toMatchObject({
+      output: {
+        message: 'Hi Acme — operator revised this opener.',
+        subject: 'Revised subject line',
+      },
+    });
+  });
+
   it('rejects a paused run and keeps prior artifacts reviewable', async () => {
     const { service, queue } = makeService();
     const started = await service.start('lead-to-outreach', {

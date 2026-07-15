@@ -76,7 +76,17 @@ export const createWorkflowRunsListHandler =
 export const createWorkflowApproveHandler =
   ({ service }: { service: WorkflowService }) =>
   async (request: Request, { runId }: RunParams): Promise<Response> => {
-    let body: { stepId?: string };
+    let body: {
+      stepId?: string;
+      edits?: {
+        message?: string;
+        subject?: string;
+        briefTitle?: string;
+        brief?: string;
+        summary?: string;
+        checklistText?: string;
+      };
+    };
     try {
       const raw = await request.text();
       body = raw ? JSON.parse(raw) : {};
@@ -89,7 +99,7 @@ export const createWorkflowApproveHandler =
     }
 
     try {
-      const run = await service.approve(runId, body.stepId);
+      const run = await service.approve(runId, body.stepId, body.edits);
       return json(200, { run });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -97,6 +107,49 @@ export const createWorkflowApproveHandler =
         return json(404, { error: message });
       }
       if (message.includes('not awaiting review')) {
+        return json(409, { error: message });
+      }
+      return json(500, { error: message });
+    }
+  };
+
+export const createWorkflowEditHandler =
+  ({ service }: { service: WorkflowService }) =>
+  async (request: Request, { runId }: RunParams): Promise<Response> => {
+    let body: {
+      stepId?: string;
+      edits?: {
+        message?: string;
+        subject?: string;
+        briefTitle?: string;
+        brief?: string;
+        summary?: string;
+        checklistText?: string;
+      };
+    };
+    try {
+      const raw = await request.text();
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(400, { error: 'Request body must be valid JSON.' });
+    }
+
+    if (!body.stepId) {
+      return json(400, { error: 'stepId is required.' });
+    }
+    if (!body.edits || typeof body.edits !== 'object') {
+      return json(400, { error: 'edits is required.' });
+    }
+
+    try {
+      const detail = await service.editPendingArtifact(runId, body.stepId, body.edits);
+      return json(200, detail);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('not found')) {
+        return json(404, { error: message });
+      }
+      if (message.includes('not awaiting review') || message.includes('edit field')) {
         return json(409, { error: message });
       }
       return json(500, { error: message });

@@ -6,6 +6,12 @@ import {
   createWorkflowRun,
   type WorkflowRunSnapshot,
 } from '@/core/workflow-runner';
+import {
+  applyApprovalEdits,
+  hasApprovalEdits,
+  type ApprovalEdits,
+} from '@/client/approval-edits';
+import { getGatedArtifact } from '@/client/approval-ui';
 import type { Logger } from '@/services/logger';
 import {
   isWorkflowId,
@@ -58,7 +64,16 @@ export interface WorkflowService {
   ): Promise<WorkflowRunSnapshot>;
   getRun(runId: string): Promise<WorkflowRunDetail>;
   listRuns(): Promise<readonly WorkflowRunSummary[]>;
-  approve(runId: string, stepId: string): Promise<WorkflowRunSnapshot>;
+  approve(
+    runId: string,
+    stepId: string,
+    edits?: ApprovalEdits,
+  ): Promise<WorkflowRunSnapshot>;
+  editPendingArtifact(
+    runId: string,
+    stepId: string,
+    edits: ApprovalEdits,
+  ): Promise<WorkflowRunDetail>;
   reject(
     runId: string,
     stepId: string,
@@ -130,6 +145,40 @@ export const createWorkflowService = ({
       onProgress: (next) => runStore.save(next),
     });
 
+  const requirePendingGate = async (runId: string, stepId: string) => {
+    const snapshot = await runStore.getById(runId);
+    if (!snapshot) {
+      throw new Error(`Workflow run "${runId}" not found.`);
+    }
+    if (snapshot.status !== 'needs_review' || snapshot.pendingApprovalStepId === null) {
+      throw new Error(`Workflow run ${runId} is not awaiting review.`);
+    }
+    if (stepId !== snapshot.pendingApprovalStepId) {
+      throw new Error(
+        `Step "${stepId}" is not awaiting approval; expected "${snapshot.pendingApprovalStepId}".`,
+      );
+    }
+    return snapshot;
+  };
+
+  const applyEditsToPendingArtifact = async (
+    snapshot: WorkflowRunSnapshot,
+    stepId: string,
+    edits: ApprovalEdits,
+  ) => {
+    const definition = resolveWorkflowDefinition(
+      snapshot.definitionId as Parameters<typeof resolveWorkflowDefinition>[0],
+      snapshot.projectId,
+    );
+    const artifacts = await artifactStore.listByWorkflow(snapshot.id);
+    const gated = getGatedArtifact(artifacts, stepId, definition);
+    if (!gated) {
+      throw new Error(`No gated artifact found for step "${stepId}".`);
+    }
+    const nextContent = applyApprovalEdits(gated.content, edits);
+    await artifactStore.update(gated.id, nextContent);
+  };
+
   return {
     start: async (workflowId, { projectId, input }) => {
       if (!isWorkflowId(workflowId)) {
@@ -176,21 +225,12 @@ export const createWorkflowService = ({
       return snapshots.map(toRunSummary);
     },
 
-    approve: async (runId, stepId) => {
-      const snapshot = await runStore.getById(runId);
-      if (!snapshot) {
-        throw new Error(`Workflow run "${runId}" not found.`);
-      }
-      if (snapshot.status !== 'needs_review' || snapshot.pendingApprovalStepId === null) {
-        throw new Error(`Workflow run ${runId} is not awaiting review.`);
-      }
-      if (stepId !== snapshot.pendingApprovalStepId) {
-        throw new Error(
-          `Step "${stepId}" is not awaiting approval; expected "${snapshot.pendingApprovalStepId}".`,
-        );
-      }
+    approve: async (runId, stepId, edits) => {
+      const pausedSnapshot = await requirePendingGate(runId, stepId);
 
-      const pausedSnapshot = snapshot;
+      if (hasApprovalEdits(edits)) {
+        await applyEditsToPendingArtifact(pausedSnapshot, stepId, edits!);
+      }
 
       runInBackground(async () => {
         const runner = restoreRun(pausedSnapshot);
@@ -201,20 +241,18 @@ export const createWorkflowService = ({
       return runningResponse(pausedSnapshot);
     },
 
-    reject: async (runId, stepId, reason) => {
-      const snapshot = await runStore.getById(runId);
-      if (!snapshot) {
-        throw new Error(`Workflow run "${runId}" not found.`);
+    editPendingArtifact: async (runId, stepId, edits) => {
+      const snapshot = await requirePendingGate(runId, stepId);
+      if (!hasApprovalEdits(edits)) {
+        throw new Error('At least one edit field is required.');
       }
-      if (snapshot.status !== 'needs_review' || snapshot.pendingApprovalStepId === null) {
-        throw new Error(`Workflow run ${runId} is not awaiting review.`);
-      }
-      if (stepId !== snapshot.pendingApprovalStepId) {
-        throw new Error(
-          `Step "${stepId}" is not awaiting approval; expected "${snapshot.pendingApprovalStepId}".`,
-        );
-      }
+      await applyEditsToPendingArtifact(snapshot, stepId, edits);
+      const artifacts = await artifactStore.listByWorkflow(runId);
+      return { run: snapshot, artifacts };
+    },
 
+    reject: async (runId, stepId, reason) => {
+      const snapshot = await requirePendingGate(runId, stepId);
       const runner = restoreRun(snapshot);
       await runner.reject(stepId, reason);
       await persist(runner);

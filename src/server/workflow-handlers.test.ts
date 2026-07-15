@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createWorkflowApproveHandler,
+  createWorkflowEditHandler,
   createWorkflowRejectHandler,
   createWorkflowRunHandler,
   createWorkflowRunsListHandler,
@@ -45,6 +46,7 @@ const makeHandlers = () => {
     get: createWorkflowRunHandler({ service }),
     list: createWorkflowRunsListHandler({ service }),
     approve: createWorkflowApproveHandler({ service }),
+    edit: createWorkflowEditHandler({ service }),
     reject: createWorkflowRejectHandler({ service }),
     queue,
   };
@@ -247,6 +249,46 @@ describe('workflow API handlers', () => {
     const payload = await response.json();
     expect(payload.run.status).toBe('rejected');
     expect(payload.run.error).toBe('Too salesy');
+  });
+
+  it('POST /api/workflows/runs/:runId/edit updates the gated artifact', async () => {
+    const handlers = makeHandlers();
+    const started = await (
+      await handlers.start(
+        new Request('http://test/api/workflows/lead-to-outreach/run', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectId: 'proj-1', input: {} }),
+        }),
+        { id: 'lead-to-outreach' },
+      )
+    ).json();
+    await handlers.queue.flush();
+
+    const paused = await (
+      await handlers.get(new Request('http://test'), { runId: started.run.id })
+    ).json();
+
+    const response = await handlers.edit(
+      new Request('http://test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          stepId: paused.run.pendingApprovalStepId,
+          edits: { message: 'Operator-edited outreach' },
+        }),
+      }),
+      { runId: started.run.id },
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.run.status).toBe('needs_review');
+    const gated = payload.artifacts.find(
+      (artifact: { title: string }) =>
+        artifact.title === 'Draft a personalised outreach plan',
+    );
+    expect(gated.content.output.message).toBe('Operator-edited outreach');
   });
 
   it('returns 400 when reject body omits stepId', async () => {

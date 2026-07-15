@@ -76,6 +76,20 @@ const describeArtifactStoreContract = (
       const b = await store.save(sampleArtifact());
       expect(a.id).not.toBe(b.id);
     });
+
+    it('updates artifact content in place without changing id or sequence', async () => {
+      const saved = await store.save(sampleArtifact({ content: { message: 'old' } }));
+      const updated = await store.update(saved.id, { message: 'revised' });
+
+      expect(updated.id).toBe(saved.id);
+      expect(updated.sequence).toBe(saved.sequence);
+      expect(updated.content).toEqual({ message: 'revised' });
+      expect(await store.getById(saved.id)).toEqual(updated);
+    });
+
+    it('throws when updating an unknown artifact id', async () => {
+      await expect(store.update('missing', { x: 1 })).rejects.toThrow(/missing/);
+    });
   });
 };
 

@@ -26,6 +26,8 @@ export interface ArtifactStore {
   save(artifact: NewArtifact): Promise<Artifact>;
   getById(id: string): Promise<Artifact | null>;
   listByWorkflow(workflowId: string): Promise<Artifact[]>;
+  /** Replace artifact content in place (used for edit-before-approve). */
+  update(id: string, content: unknown): Promise<Artifact>;
 }
 
 const bySequence = (a: Artifact, b: Artifact) => a.sequence - b.sequence;
@@ -48,6 +50,15 @@ export const createInMemoryArtifactStore = (): ArtifactStore => {
     getById: async (id) => artifacts.get(id) ?? null,
     listByWorkflow: async (workflowId) =>
       [...artifacts.values()].filter((a) => a.workflowId === workflowId).sort(bySequence),
+    update: async (id, content) => {
+      const existing = artifacts.get(id);
+      if (!existing) {
+        throw new Error(`Artifact "${id}" not found.`);
+      }
+      const updated: Artifact = { ...existing, content };
+      artifacts.set(id, updated);
+      return updated;
+    },
   };
 };
 
@@ -99,5 +110,21 @@ export const createFileArtifactStore = (baseDir: string): ArtifactStore => {
     },
     listByWorkflow: async (workflowId) =>
       (await readAll()).filter((a) => a.workflowId === workflowId),
+    update: async (id, content) => {
+      const existing = await (async () => {
+        try {
+          return JSON.parse(await readFile(fileFor(id), 'utf8')) as Artifact;
+        } catch {
+          return null;
+        }
+      })();
+      if (!existing) {
+        throw new Error(`Artifact "${id}" not found.`);
+      }
+      const updated: Artifact = { ...existing, content };
+      await mkdir(baseDir, { recursive: true });
+      await writeFile(fileFor(id), JSON.stringify(updated, null, 2), 'utf8');
+      return updated;
+    },
   };
 };
