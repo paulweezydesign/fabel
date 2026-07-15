@@ -32,7 +32,11 @@ const POLL_INTERVAL_MS = 2000;
 
 type Phase = 'idle' | 'starting' | 'approving' | 'saving' | 'rejecting' | 'ready';
 
-export function OperatorDashboard() {
+export function OperatorDashboard({
+  authEnabled = false,
+}: {
+  readonly authEnabled?: boolean;
+}) {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowId>('lead-to-outreach');
   const [projectId, setProjectId] = useState('proj-1');
   const [clientName, setClientName] = useState('');
@@ -210,6 +214,14 @@ export function OperatorDashboard() {
     void refreshPastRuns();
   };
 
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      window.location.assign('/login');
+    }
+  };
+
   const busy =
     phase === 'starting' ||
     phase === 'approving' ||
@@ -220,8 +232,21 @@ export function OperatorDashboard() {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1>Fabel</h1>
-        <p>Run multi-agent workflows, review output, and approve before anything ships.</p>
+        <div className="dashboard-header-row">
+          <div>
+            <h1>Fabel</h1>
+            <p>Run multi-agent workflows, review output, and approve before anything ships.</p>
+          </div>
+          {authEnabled && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => void handleSignOut()}
+            >
+              Sign out
+            </button>
+          )}
+        </div>
       </header>
 
       {!run && (

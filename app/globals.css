@@ -41,6 +41,13 @@ a {
   padding: 2.5rem 1.5rem 4rem;
 }
 
+.dashboard-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .dashboard-header h1 {
   margin: 0 0 0.25rem;
   font-size: 1.75rem;
@@ -51,6 +58,49 @@ a {
 .dashboard-header p {
   margin: 0;
   color: var(--muted);
+}
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent),
+    var(--bg);
+}
+
+.login-panel {
+  width: min(100%, 26rem);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.75rem 1.5rem 1.5rem;
+}
+
+.login-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.login-header p {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+}
+
+.login-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.login-form .actions {
+  margin-top: 1.25rem;
+}
+
+.login-form .btn-primary {
+  width: 100%;
 }
 
 .panel {

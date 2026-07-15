@@ -68,6 +68,18 @@ The AI provider is NVIDIA NIM (OpenAI-compatible), default model `nvidia/nemotro
 
 Workflow runs and artifacts default to **file persistence** under `.artifacts/` and `.workflow-runs/` (gitignored), so the dashboard’s past runs survive `npm run dev` restarts. Set `FABEL_PERSISTENCE=memory` for ephemeral sessions.
 
+### Single-tenant auth
+
+Set `FABEL_AUTH_PASSWORD` to require a login before the dashboard or APIs can be used (PRD §10 — hardcoded single tenant for the prototype). Optionally set `FABEL_AUTH_SECRET` for cookie signing (defaults to the password). When the password is unset, auth stays off so local/CI flows remain open.
+
+```bash
+# .env.local
+FABEL_AUTH_PASSWORD=your-shared-password
+FABEL_AUTH_SECRET=a-long-random-string
+```
+
+Then open `http://localhost:3000` — you’ll be redirected to `/login`. Sign out from the dashboard header.
+
 ## Development
 
 ```bash
