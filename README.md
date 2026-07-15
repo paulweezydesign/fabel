@@ -33,10 +33,15 @@ curl -X POST http://localhost:3000/api/workflows/lead-to-outreach/run \
 # Check status and artifacts (use run.id from the response)
 curl http://localhost:3000/api/workflows/runs/<runId>
 
-# Approve the paused step (use pendingApprovalStepId from the response)
+# Optionally edit the gated artifact before approving
+curl -X POST http://localhost:3000/api/workflows/runs/<runId>/edit \
+  -H "Content-Type: application/json" \
+  -d '{"stepId":"draft-outreach","edits":{"message":"Hi Acme — revised opener."}}'
+
+# Approve the paused step (optional edits applied first)
 curl -X POST http://localhost:3000/api/workflows/runs/<runId>/approve \
   -H "Content-Type: application/json" \
-  -d '{"stepId":"draft-outreach"}'
+  -d '{"stepId":"draft-outreach","edits":{"subject":"Quick idea for Acme"}}'
 
 # Or reject it (optional reason)
 curl -X POST http://localhost:3000/api/workflows/runs/<runId>/reject \
@@ -46,7 +51,7 @@ curl -X POST http://localhost:3000/api/workflows/runs/<runId>/reject \
 
 ## Operator dashboard
 
-Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, and click **Run workflow** — the UI returns immediately and polls for live step progress while agents work in the background. Review artifacts at the approval gate, then **Approve & continue** or **Reject** (with an optional reason).
+Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, and click **Run workflow** — the UI returns immediately and polls for live step progress while agents work in the background. At the approval gate you can **edit** the gated output, **Save edits**, then **Approve**, or **Reject** with an optional reason.
 
 The dashboard calls the workflow API routes below the hood — no curl required.
 

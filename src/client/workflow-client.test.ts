@@ -94,12 +94,38 @@ describe('createWorkflowClient', () => {
     const fetchMock = vi.fn(async () => jsonResponse({ run }));
 
     const client = createWorkflowClient(fetchMock);
-    const result = await client.approve('run-1', 'draft-outreach');
+    const result = await client.approve('run-1', 'draft-outreach', {
+      message: 'Revised opener',
+    });
 
     expect(result).toEqual(run);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/workflows/runs/run-1/approve');
-    expect(JSON.parse(init.body as string)).toEqual({ stepId: 'draft-outreach' });
+    expect(JSON.parse(init.body as string)).toEqual({
+      stepId: 'draft-outreach',
+      edits: { message: 'Revised opener' },
+    });
+  });
+
+  it('edits a paused artifact via POST /api/workflows/runs/:runId/edit', async () => {
+    const detail = {
+      run: sampleRun(),
+      artifacts: [],
+    };
+    const fetchMock = vi.fn(async () => jsonResponse(detail));
+
+    const client = createWorkflowClient(fetchMock);
+    const result = await client.editPendingArtifact('run-1', 'draft-outreach', {
+      message: 'Saved draft',
+    });
+
+    expect(result).toEqual(detail);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/workflows/runs/run-1/edit');
+    expect(JSON.parse(init.body as string)).toEqual({
+      stepId: 'draft-outreach',
+      edits: { message: 'Saved draft' },
+    });
   });
 
   it('rejects a paused step via POST /api/workflows/runs/:runId/reject', async () => {

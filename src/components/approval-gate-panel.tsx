@@ -1,8 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Artifact } from '@/core/artifact-store';
 import type { WorkflowDefinition, WorkflowRunSnapshot } from '@/core/workflow-runner';
+import {
+  draftToEdits,
+  extractEditableDraft,
+  type ApprovalEdits,
+  type EditableApprovalDraft,
+} from '@/client/approval-edits';
 import {
   extractReviewContent,
   getGatedArtifact,
@@ -14,9 +20,11 @@ interface ApprovalGatePanelProps {
   readonly run: WorkflowRunSnapshot;
   readonly definition: WorkflowDefinition;
   readonly artifacts: readonly Artifact[];
-  readonly onApprove: () => void;
+  readonly onApprove: (edits: ApprovalEdits) => void;
+  readonly onSaveEdits: (edits: ApprovalEdits) => void;
   readonly onReject: (reason: string) => void;
   readonly approving: boolean;
+  readonly saving: boolean;
   readonly rejecting: boolean;
   readonly busy: boolean;
 }
@@ -62,20 +70,32 @@ export function ApprovalGatePanel({
   definition,
   artifacts,
   onApprove,
+  onSaveEdits,
   onReject,
   approving,
+  saving,
   rejecting,
   busy,
 }: ApprovalGatePanelProps) {
   const [reason, setReason] = useState('');
+  const [draft, setDraft] = useState<EditableApprovalDraft>(() =>
+    extractEditableDraft(null),
+  );
+
+  const gatedStep = definition.steps.find((step) => step.id === run.pendingApprovalStepId);
+  const gatedArtifact = getGatedArtifact(artifacts, run.pendingApprovalStepId, definition);
+  const review = extractReviewContent(gatedArtifact);
+
+  useEffect(() => {
+    setDraft(extractEditableDraft(gatedArtifact));
+  }, [gatedArtifact?.id, gatedArtifact?.content]);
 
   if (run.status !== 'needs_review' || !run.pendingApprovalStepId) {
     return null;
   }
 
-  const gatedStep = definition.steps.find((step) => step.id === run.pendingApprovalStepId);
-  const gatedArtifact = getGatedArtifact(artifacts, run.pendingApprovalStepId, definition);
-  const review = extractReviewContent(gatedArtifact);
+  const kind = review?.kind ?? 'fallback';
+  const edits = draftToEdits(draft, kind);
 
   return (
     <section className="panel approval-gate-panel" aria-labelledby="approval-gate-heading">
@@ -83,10 +103,19 @@ export function ApprovalGatePanel({
         <div>
           <h2 id="approval-gate-heading">Approval required</h2>
           <p className="approval-gate-panel__hint">
-            Review the output below before anything ships to the client.
+            Edit the output if needed, then approve — or reject with a reason.
           </p>
         </div>
         <div className="approval-gate-panel__actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => onSaveEdits(edits)}
+            disabled={busy}
+          >
+            {saving && <span className="spinner" />}
+            Save edits
+          </button>
           <button
             type="button"
             className="btn-reject"
@@ -99,7 +128,7 @@ export function ApprovalGatePanel({
           <button
             type="button"
             className="btn-approve"
-            onClick={onApprove}
+            onClick={() => onApprove(edits)}
             disabled={busy}
           >
             {approving && <span className="spinner" />}
@@ -118,8 +147,76 @@ export function ApprovalGatePanel({
       {review ? (
         <div className={`approval-gate-panel__content approval-gate-panel__content--${review.kind}`}>
           <span className="approval-gate-panel__content-label">{reviewLabel(review)}</span>
-          <p className="approval-gate-panel__headline">{review.headline}</p>
-          {review.detail && <p className="approval-gate-panel__detail">{review.detail}</p>}
+
+          {(kind === 'outreach_message' || kind === 'summary' || kind === 'fallback') && (
+            <>
+              <label className="approval-gate-panel__field">
+                Outreach message
+                <textarea
+                  value={draft.message}
+                  onChange={(e) => setDraft((current) => ({ ...current, message: e.target.value }))}
+                  disabled={busy}
+                  rows={4}
+                />
+              </label>
+              <label className="approval-gate-panel__field">
+                Subject
+                <input
+                  value={draft.subject}
+                  onChange={(e) => setDraft((current) => ({ ...current, subject: e.target.value }))}
+                  disabled={busy}
+                />
+              </label>
+            </>
+          )}
+
+          {kind === 'project_brief' && (
+            <>
+              <label className="approval-gate-panel__field">
+                Brief title
+                <input
+                  value={draft.briefTitle}
+                  onChange={(e) =>
+                    setDraft((current) => ({ ...current, briefTitle: e.target.value }))
+                  }
+                  disabled={busy}
+                />
+              </label>
+              <label className="approval-gate-panel__field">
+                Brief
+                <textarea
+                  value={draft.brief}
+                  onChange={(e) => setDraft((current) => ({ ...current, brief: e.target.value }))}
+                  disabled={busy}
+                  rows={5}
+                />
+              </label>
+            </>
+          )}
+
+          {kind === 'build_plan_qa' && (
+            <label className="approval-gate-panel__field">
+              Checklist (one item per line)
+              <textarea
+                value={draft.checklistText}
+                onChange={(e) =>
+                  setDraft((current) => ({ ...current, checklistText: e.target.value }))
+                }
+                disabled={busy}
+                rows={5}
+              />
+            </label>
+          )}
+
+          <label className="approval-gate-panel__field">
+            Summary
+            <input
+              value={draft.summary}
+              onChange={(e) => setDraft((current) => ({ ...current, summary: e.target.value }))}
+              disabled={busy}
+            />
+          </label>
+
           {review.sections && review.sections.length > 0 && (
             <SectionList sections={review.sections} />
           )}

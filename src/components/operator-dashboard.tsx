@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Artifact } from '@/core/artifact-store';
+import type { ApprovalEdits } from '@/client/approval-edits';
 import { formatApprovalToast, formatRejectionToast } from '@/client/approval-ui';
 import {
   buildStepTimeline,
@@ -29,7 +30,7 @@ const workflows = listWorkflowDefinitionMeta();
 const client = createWorkflowClient();
 const POLL_INTERVAL_MS = 2000;
 
-type Phase = 'idle' | 'starting' | 'approving' | 'rejecting' | 'ready';
+type Phase = 'idle' | 'starting' | 'approving' | 'saving' | 'rejecting' | 'ready';
 
 export function OperatorDashboard() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowId>('lead-to-outreach');
@@ -130,14 +131,14 @@ export function OperatorDashboard() {
     }
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (edits?: ApprovalEdits) => {
     if (!run?.pendingApprovalStepId) return;
 
     setError(null);
     setPhase('approving');
 
     try {
-      const approved = await client.approve(run.id, run.pendingApprovalStepId);
+      const approved = await client.approve(run.id, run.pendingApprovalStepId, edits);
       setDetail((current) =>
         current ? { ...current, run: approved } : { run: approved, artifacts: [] },
       );
@@ -151,6 +152,30 @@ export function OperatorDashboard() {
         err instanceof WorkflowClientError ? err.message : 'Failed to approve workflow.';
       setError(message);
       showToast(`Approval failed: ${message}`, 'error');
+    }
+  };
+
+  const handleSaveEdits = async (edits: ApprovalEdits) => {
+    if (!run?.pendingApprovalStepId) return;
+
+    setError(null);
+    setPhase('saving');
+
+    try {
+      const updated = await client.editPendingArtifact(
+        run.id,
+        run.pendingApprovalStepId,
+        edits,
+      );
+      setDetail(updated);
+      setPhase('ready');
+      showToast('Edits saved — still awaiting approval', 'success');
+    } catch (err) {
+      setPhase('ready');
+      const message =
+        err instanceof WorkflowClientError ? err.message : 'Failed to save edits.';
+      setError(message);
+      showToast(`Save failed: ${message}`, 'error');
     }
   };
 
@@ -185,7 +210,11 @@ export function OperatorDashboard() {
     void refreshPastRuns();
   };
 
-  const busy = phase === 'starting' || phase === 'approving' || phase === 'rejecting';
+  const busy =
+    phase === 'starting' ||
+    phase === 'approving' ||
+    phase === 'saving' ||
+    phase === 'rejecting';
   const polling = run !== null && shouldPollRun(run);
 
   return (
@@ -335,7 +364,7 @@ export function OperatorDashboard() {
                     <button
                       type="button"
                       className="btn-approve btn-approve--inline"
-                      onClick={handleApprove}
+                      onClick={() => handleApprove()}
                       disabled={busy}
                     >
                       {phase === 'approving' && <span className="spinner" />}
@@ -362,7 +391,7 @@ export function OperatorDashboard() {
                 <button
                   type="button"
                   className="btn-success"
-                  onClick={handleApprove}
+                  onClick={() => handleApprove()}
                   disabled={busy}
                 >
                   {phase === 'approving' && <span className="spinner" />}
@@ -385,8 +414,10 @@ export function OperatorDashboard() {
             definition={definition}
             artifacts={artifacts}
             onApprove={handleApprove}
+            onSaveEdits={handleSaveEdits}
             onReject={handleReject}
             approving={phase === 'approving'}
+            saving={phase === 'saving'}
             rejecting={phase === 'rejecting'}
             busy={busy}
           />
