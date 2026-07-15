@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { Artifact } from '@/core/artifact-store';
 import type { WorkflowDefinition, WorkflowRunSnapshot } from '@/core/workflow-runner';
 import {
@@ -13,7 +14,9 @@ interface ApprovalGatePanelProps {
   readonly definition: WorkflowDefinition;
   readonly artifacts: readonly Artifact[];
   readonly onApprove: () => void;
+  readonly onReject: (reason: string) => void;
   readonly approving: boolean;
+  readonly rejecting: boolean;
   readonly busy: boolean;
 }
 
@@ -33,9 +36,13 @@ export function ApprovalGatePanel({
   definition,
   artifacts,
   onApprove,
+  onReject,
   approving,
+  rejecting,
   busy,
 }: ApprovalGatePanelProps) {
+  const [reason, setReason] = useState('');
+
   if (run.status !== 'needs_review' || !run.pendingApprovalStepId) {
     return null;
   }
@@ -53,15 +60,26 @@ export function ApprovalGatePanel({
             Review the output below before anything ships to the client.
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-approve"
-          onClick={onApprove}
-          disabled={busy}
-        >
-          {approving && <span className="spinner" />}
-          Approve
-        </button>
+        <div className="approval-gate-panel__actions">
+          <button
+            type="button"
+            className="btn-reject"
+            onClick={() => onReject(reason)}
+            disabled={busy}
+          >
+            {rejecting && <span className="spinner" />}
+            Reject
+          </button>
+          <button
+            type="button"
+            className="btn-approve"
+            onClick={onApprove}
+            disabled={busy}
+          >
+            {approving && <span className="spinner" />}
+            Approve
+          </button>
+        </div>
       </div>
 
       {gatedStep && (
@@ -80,6 +98,17 @@ export function ApprovalGatePanel({
       ) : (
         <p className="empty-state">Waiting for the gated step output…</p>
       )}
+
+      <label className="approval-gate-panel__reason">
+        Rejection reason (optional)
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Tone doesn’t match the agency voice"
+          disabled={busy}
+          rows={2}
+        />
+      </label>
     </section>
   );
 }

@@ -33,7 +33,8 @@ export type WorkflowStatus =
   | 'running'
   | 'needs_review'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'rejected';
 
 export type StepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
@@ -63,6 +64,7 @@ export interface WorkflowRun {
   getSnapshot(): WorkflowRunSnapshot;
   start(input: TaskInput): Promise<void>;
   approve(stepId: string): Promise<void>;
+  reject(stepId: string, reason?: string): Promise<void>;
 }
 
 interface WorkflowRunInit {
@@ -290,6 +292,22 @@ export const createWorkflowRun = ({
       touch();
       logger.info(`workflow step approved`, { workflowId: id, stepId });
       await runLoop(workflowInput);
+    },
+    reject: async (stepId, reason) => {
+      if (status !== 'needs_review' || pendingApprovalStepId === null) {
+        throw new Error(`Workflow run ${id} is not awaiting review.`);
+      }
+      if (stepId !== pendingApprovalStepId) {
+        throw new Error(
+          `Step "${stepId}" is not awaiting approval; expected "${pendingApprovalStepId}".`,
+        );
+      }
+      const trimmed = reason?.trim();
+      error = trimmed && trimmed.length > 0 ? trimmed : 'Rejected at approval gate';
+      pendingApprovalStepId = null;
+      status = 'rejected';
+      touch();
+      logger.info(`workflow step rejected`, { workflowId: id, stepId, reason: error });
     },
   };
 };

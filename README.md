@@ -37,11 +37,16 @@ curl http://localhost:3000/api/workflows/runs/<runId>
 curl -X POST http://localhost:3000/api/workflows/runs/<runId>/approve \
   -H "Content-Type: application/json" \
   -d '{"stepId":"draft-outreach"}'
+
+# Or reject it (optional reason)
+curl -X POST http://localhost:3000/api/workflows/runs/<runId>/reject \
+  -H "Content-Type: application/json" \
+  -d '{"stepId":"draft-outreach","reason":"Tone does not match the agency voice"}'
 ```
 
 ## Operator dashboard
 
-Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, and click **Run workflow** — the UI returns immediately and polls for live step progress while agents work in the background. Review artifacts at the approval gate, then click **Approve & continue**.
+Open `http://localhost:3000` after starting the dev server. Pick a workflow, enter client details, and click **Run workflow** — the UI returns immediately and polls for live step progress while agents work in the background. Review artifacts at the approval gate, then **Approve & continue** or **Reject** (with an optional reason).
 
 The dashboard calls the workflow API routes below the hood — no curl required.
 

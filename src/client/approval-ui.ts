@@ -69,3 +69,8 @@ export const formatApprovalToast = (run: WorkflowRunSnapshot): string => {
   }
   return 'Approved';
 };
+
+export const formatRejectionToast = (run: WorkflowRunSnapshot): string => {
+  const reason = run.error?.trim();
+  return reason ? `Rejected — ${reason}` : 'Rejected at approval gate';
+};

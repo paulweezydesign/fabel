@@ -6,6 +6,7 @@ import { resolveWorkflowDefinition } from '@/workflows/catalog';
 import {
   extractReviewContent,
   formatApprovalToast,
+  formatRejectionToast,
   getGatedArtifact,
 } from './approval-ui';
 
@@ -143,6 +144,22 @@ describe('formatApprovalToast', () => {
   it('announces completion when the workflow finishes after approval', () => {
     expect(formatApprovalToast(approvedRun({ status: 'completed' }))).toBe(
       'Approved — workflow completed',
+    );
+  });
+});
+
+describe('formatRejectionToast', () => {
+  it('includes the rejection reason when present', () => {
+    expect(
+      formatRejectionToast(
+        approvedRun({ status: 'rejected', error: 'Needs a warmer opener' }),
+      ),
+    ).toBe('Rejected — Needs a warmer opener');
+  });
+
+  it('falls back when no reason is stored', () => {
+    expect(formatRejectionToast(approvedRun({ status: 'rejected', error: null }))).toBe(
+      'Rejected at approval gate',
     );
   });
 });
