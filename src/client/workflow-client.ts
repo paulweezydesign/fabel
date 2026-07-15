@@ -25,6 +25,11 @@ export interface WorkflowClient {
   listRuns(): Promise<readonly WorkflowRunSummary[]>;
   getRun(runId: string): Promise<WorkflowRunDetail>;
   approve(runId: string, stepId: string): Promise<WorkflowRunSnapshot>;
+  reject(
+    runId: string,
+    stepId: string,
+    reason?: string,
+  ): Promise<WorkflowRunSnapshot>;
 }
 
 export class WorkflowClientError extends Error {
@@ -95,6 +100,22 @@ export const createWorkflowClient = (fetchImpl: FetchImpl = fetch): WorkflowClie
       throw new WorkflowClientError(
         response.status,
         await readError(response, `Workflow approve failed with status ${response.status}.`),
+      );
+    }
+    const payload = (await response.json()) as { run: WorkflowRunSnapshot };
+    return payload.run;
+  },
+
+  reject: async (runId, stepId, reason) => {
+    const response = await fetchImpl(`/api/workflows/runs/${runId}/reject`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ stepId, reason }),
+    });
+    if (!response.ok) {
+      throw new WorkflowClientError(
+        response.status,
+        await readError(response, `Workflow reject failed with status ${response.status}.`),
       );
     }
     const payload = (await response.json()) as { run: WorkflowRunSnapshot };

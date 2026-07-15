@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createWorkflowApproveHandler,
+  createWorkflowRejectHandler,
   createWorkflowRunHandler,
   createWorkflowRunsListHandler,
   createWorkflowStartHandler,
@@ -44,6 +45,7 @@ const makeHandlers = () => {
     get: createWorkflowRunHandler({ service }),
     list: createWorkflowRunsListHandler({ service }),
     approve: createWorkflowApproveHandler({ service }),
+    reject: createWorkflowRejectHandler({ service }),
     queue,
   };
 };
@@ -200,6 +202,68 @@ describe('workflow API handlers', () => {
     await handlers.queue.flush();
 
     const response = await handlers.approve(
+      new Request('http://test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }),
+      { runId: started.run.id },
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /api/workflows/runs/:runId/reject marks a paused workflow rejected', async () => {
+    const handlers = makeHandlers();
+    const started = await (
+      await handlers.start(
+        new Request('http://test/api/workflows/lead-to-outreach/run', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectId: 'proj-1', input: {} }),
+        }),
+        { id: 'lead-to-outreach' },
+      )
+    ).json();
+    await handlers.queue.flush();
+
+    const paused = await (
+      await handlers.get(new Request('http://test'), { runId: started.run.id })
+    ).json();
+
+    const response = await handlers.reject(
+      new Request('http://test', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          stepId: paused.run.pendingApprovalStepId,
+          reason: 'Too salesy',
+        }),
+      }),
+      { runId: started.run.id },
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.run.status).toBe('rejected');
+    expect(payload.run.error).toBe('Too salesy');
+  });
+
+  it('returns 400 when reject body omits stepId', async () => {
+    const handlers = makeHandlers();
+    const started = await (
+      await handlers.start(
+        new Request('http://test/api/workflows/lead-to-outreach/run', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectId: 'proj-1', input: {} }),
+        }),
+        { id: 'lead-to-outreach' },
+      )
+    ).json();
+    await handlers.queue.flush();
+
+    const response = await handlers.reject(
       new Request('http://test', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

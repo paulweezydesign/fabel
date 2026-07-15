@@ -32,10 +32,15 @@ export const buildStepTimeline = (
 export const canApproveRun = (run: WorkflowRunSnapshot): boolean =>
   run.status === 'needs_review' && run.pendingApprovalStepId !== null;
 
+export const canRejectRun = (run: WorkflowRunSnapshot): boolean => canApproveRun(run);
+
 export const isRunActive = (run: WorkflowRunSnapshot): boolean => run.status === 'running';
 
 export const isTerminalRunStatus = (status: WorkflowStatus): boolean =>
-  status === 'needs_review' || status === 'completed' || status === 'failed';
+  status === 'needs_review' ||
+  status === 'completed' ||
+  status === 'failed' ||
+  status === 'rejected';
 
 export const shouldPollRun = (run: WorkflowRunSnapshot): boolean => isRunActive(run);
 
@@ -53,5 +58,7 @@ export const statusLabel = (status: WorkflowRunSnapshot['status']): string => {
       return 'Completed';
     case 'failed':
       return 'Failed';
+    case 'rejected':
+      return 'Rejected';
   }
 };

@@ -102,6 +102,26 @@ describe('createWorkflowClient', () => {
     expect(JSON.parse(init.body as string)).toEqual({ stepId: 'draft-outreach' });
   });
 
+  it('rejects a paused step via POST /api/workflows/runs/:runId/reject', async () => {
+    const run = sampleRun({
+      status: 'rejected',
+      pendingApprovalStepId: null,
+      error: 'Needs rewrite',
+    });
+    const fetchMock = vi.fn(async () => jsonResponse({ run }));
+
+    const client = createWorkflowClient(fetchMock);
+    const result = await client.reject('run-1', 'draft-outreach', 'Needs rewrite');
+
+    expect(result).toEqual(run);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/workflows/runs/run-1/reject');
+    expect(JSON.parse(init.body as string)).toEqual({
+      stepId: 'draft-outreach',
+      reason: 'Needs rewrite',
+    });
+  });
+
   it('surfaces non-2xx responses as WorkflowClientError', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({ error: 'Unknown workflow "nope".' }, 404),

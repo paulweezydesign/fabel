@@ -255,6 +255,69 @@ describe('WorkflowRun', () => {
     await expect(run.approve('s1')).rejects.toThrow(/review/);
   });
 
+  it('rejects a paused gate, keeps artifacts, and does not run successors', async () => {
+    const { run, artifactStore } = makeRun([
+      {
+        id: 's1',
+        title: 'Outreach plan',
+        agentType: AgentType.ClientGrowth,
+        requiresApproval: true,
+      },
+      {
+        id: 's2',
+        title: 'Brief',
+        agentType: AgentType.ProjectManager,
+        dependsOn: ['s1'],
+      },
+    ]);
+
+    await run.start({});
+    expect(run.status).toBe('needs_review');
+
+    await run.reject('s1', 'Tone does not match the agency voice');
+
+    expect(run.status).toBe('rejected');
+    expect(run.pendingApprovalStepId).toBeNull();
+    expect(run.error).toBe('Tone does not match the agency voice');
+    expect(run.stepStatus('s1')).toBe('completed');
+    expect(run.stepStatus('s2')).toBe('pending');
+    expect(executionLog.map((e) => e.agentType)).toEqual([AgentType.ClientGrowth]);
+    const artifacts = await artifactStore.listByWorkflow(run.id);
+    expect(artifacts.map((a) => a.title)).toEqual(['Outreach plan']);
+  });
+
+  it('uses a default rejection reason when none is provided', async () => {
+    const { run } = makeRun([
+      {
+        id: 's1',
+        title: 'Outreach',
+        agentType: AgentType.ClientGrowth,
+        requiresApproval: true,
+      },
+    ]);
+
+    await run.start({});
+    await run.reject('s1');
+
+    expect(run.status).toBe('rejected');
+    expect(run.error).toMatch(/rejected/i);
+  });
+
+  it('rejects reject when the step is not awaiting review', async () => {
+    const { run } = makeRun([
+      {
+        id: 's1',
+        title: 'Outreach',
+        agentType: AgentType.ClientGrowth,
+        requiresApproval: true,
+      },
+    ]);
+
+    await run.start({});
+    await expect(run.reject('wrong-step')).rejects.toThrow(/wrong-step/);
+    expect(run.status).toBe('needs_review');
+  });
+
   it('halts on step failure; earlier artifacts stay retrievable (FR-11, AC-10)', async () => {
     const { run, artifactStore } = makeRun([
       { id: 's1', title: 'Research', agentType: AgentType.Research },

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStepTimeline,
   canApproveRun,
+  canRejectRun,
   formatArtifactContent,
   isRunActive,
+  statusLabel,
 } from './dashboard-state';
 import { resolveWorkflowDefinition } from '@/workflows/catalog';
 import type { WorkflowRunSnapshot } from '@/core/workflow-runner';
@@ -60,6 +62,19 @@ describe('canApproveRun', () => {
   it('returns false when completed or failed', () => {
     expect(canApproveRun({ ...pausedRun(), status: 'completed' })).toBe(false);
     expect(canApproveRun({ ...pausedRun(), status: 'failed' })).toBe(false);
+  });
+});
+
+describe('canRejectRun', () => {
+  it('mirrors canApproveRun for needs_review gates', () => {
+    expect(canRejectRun(pausedRun())).toBe(true);
+    expect(canRejectRun({ ...pausedRun(), status: 'rejected' })).toBe(false);
+  });
+});
+
+describe('statusLabel', () => {
+  it('labels rejected runs clearly', () => {
+    expect(statusLabel('rejected')).toBe('Rejected');
   });
 });
 

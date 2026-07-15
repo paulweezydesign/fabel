@@ -114,6 +114,30 @@ describe('WorkflowService', () => {
     await expect(service.approve(paused.id, 'draft-outreach')).rejects.toThrow(/review/);
   });
 
+  it('rejects a paused run and keeps prior artifacts reviewable', async () => {
+    const { service, queue } = makeService();
+    const started = await service.start('lead-to-outreach', {
+      projectId: 'proj-1',
+      input: {},
+    });
+    await queue.flush();
+
+    const paused = (await service.getRun(started.id)).run;
+    const rejected = await service.reject(
+      paused.id,
+      paused.pendingApprovalStepId!,
+      'Needs a warmer opener',
+    );
+
+    expect(rejected.status).toBe('rejected');
+    expect(rejected.error).toBe('Needs a warmer opener');
+    expect(rejected.pendingApprovalStepId).toBeNull();
+
+    const detail = await service.getRun(paused.id);
+    expect(detail.run.status).toBe('rejected');
+    expect(detail.artifacts.length).toBeGreaterThan(0);
+  });
+
   it('throws when fetching an unknown run id', async () => {
     const { service } = makeService();
     await expect(service.getRun('missing')).rejects.toThrow(/missing/);

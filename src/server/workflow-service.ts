@@ -59,6 +59,11 @@ export interface WorkflowService {
   getRun(runId: string): Promise<WorkflowRunDetail>;
   listRuns(): Promise<readonly WorkflowRunSummary[]>;
   approve(runId: string, stepId: string): Promise<WorkflowRunSnapshot>;
+  reject(
+    runId: string,
+    stepId: string,
+    reason?: string,
+  ): Promise<WorkflowRunSnapshot>;
   listDefinitions(): WorkflowDefinitionMeta[];
 }
 
@@ -194,6 +199,26 @@ export const createWorkflowService = ({
       });
 
       return runningResponse(pausedSnapshot);
+    },
+
+    reject: async (runId, stepId, reason) => {
+      const snapshot = await runStore.getById(runId);
+      if (!snapshot) {
+        throw new Error(`Workflow run "${runId}" not found.`);
+      }
+      if (snapshot.status !== 'needs_review' || snapshot.pendingApprovalStepId === null) {
+        throw new Error(`Workflow run ${runId} is not awaiting review.`);
+      }
+      if (stepId !== snapshot.pendingApprovalStepId) {
+        throw new Error(
+          `Step "${stepId}" is not awaiting approval; expected "${snapshot.pendingApprovalStepId}".`,
+        );
+      }
+
+      const runner = restoreRun(snapshot);
+      await runner.reject(stepId, reason);
+      await persist(runner);
+      return runner.getSnapshot();
     },
 
     listDefinitions: listWorkflowDefinitionMeta,

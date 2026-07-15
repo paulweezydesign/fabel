@@ -20,7 +20,7 @@ const snapshot = (
 });
 
 describe('isTerminalRunStatus', () => {
-  it.each(['needs_review', 'completed', 'failed'] as const)(
+  it.each(['needs_review', 'completed', 'failed', 'rejected'] as const)(
     'treats %s as terminal',
     (status) => {
       expect(isTerminalRunStatus(status)).toBe(true);
@@ -41,5 +41,6 @@ describe('shouldPollRun', () => {
     expect(shouldPollRun(snapshot('needs_review'))).toBe(false);
     expect(shouldPollRun(snapshot('completed'))).toBe(false);
     expect(shouldPollRun(snapshot('failed'))).toBe(false);
+    expect(shouldPollRun(snapshot('rejected'))).toBe(false);
   });
 });

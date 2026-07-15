@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Artifact } from '@/core/artifact-store';
-import { formatApprovalToast } from '@/client/approval-ui';
+import { formatApprovalToast, formatRejectionToast } from '@/client/approval-ui';
 import {
   buildStepTimeline,
   canApproveRun,
+  canRejectRun,
   shouldPollRun,
   statusLabel,
 } from '@/client/dashboard-state';
@@ -28,7 +29,7 @@ const workflows = listWorkflowDefinitionMeta();
 const client = createWorkflowClient();
 const POLL_INTERVAL_MS = 2000;
 
-type Phase = 'idle' | 'starting' | 'approving' | 'ready';
+type Phase = 'idle' | 'starting' | 'approving' | 'rejecting' | 'ready';
 
 export function OperatorDashboard() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowId>('lead-to-outreach');
@@ -143,12 +144,37 @@ export function OperatorDashboard() {
       setPhase('ready');
       showToast(formatApprovalToast(approved), 'success');
       void loadDetail(approved.id);
+      void refreshPastRuns();
     } catch (err) {
       setPhase('ready');
       const message =
         err instanceof WorkflowClientError ? err.message : 'Failed to approve workflow.';
       setError(message);
       showToast(`Approval failed: ${message}`, 'error');
+    }
+  };
+
+  const handleReject = async (reason: string) => {
+    if (!run?.pendingApprovalStepId) return;
+
+    setError(null);
+    setPhase('rejecting');
+
+    try {
+      const rejected = await client.reject(run.id, run.pendingApprovalStepId, reason);
+      setDetail((current) =>
+        current ? { ...current, run: rejected } : { run: rejected, artifacts: [] },
+      );
+      setPhase('ready');
+      showToast(formatRejectionToast(rejected), 'error');
+      void loadDetail(rejected.id);
+      void refreshPastRuns();
+    } catch (err) {
+      setPhase('ready');
+      const message =
+        err instanceof WorkflowClientError ? err.message : 'Failed to reject workflow.';
+      setError(message);
+      showToast(`Rejection failed: ${message}`, 'error');
     }
   };
 
@@ -159,7 +185,7 @@ export function OperatorDashboard() {
     void refreshPastRuns();
   };
 
-  const busy = phase === 'starting' || phase === 'approving';
+  const busy = phase === 'starting' || phase === 'approving' || phase === 'rejecting';
   const polling = run !== null && shouldPollRun(run);
 
   return (
@@ -321,6 +347,17 @@ export function OperatorDashboard() {
             </ol>
 
             <div className="actions">
+              {canRejectRun(run) && (
+                <button
+                  type="button"
+                  className="btn-reject"
+                  onClick={() => handleReject('')}
+                  disabled={busy}
+                >
+                  {phase === 'rejecting' && <span className="spinner" />}
+                  Reject
+                </button>
+              )}
               {canApproveRun(run) && (
                 <button
                   type="button"
@@ -348,7 +385,9 @@ export function OperatorDashboard() {
             definition={definition}
             artifacts={artifacts}
             onApprove={handleApprove}
+            onReject={handleReject}
             approving={phase === 'approving'}
+            rejecting={phase === 'rejecting'}
             busy={busy}
           />
 
