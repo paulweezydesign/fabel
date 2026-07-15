@@ -54,17 +54,45 @@ const extractOutputHighlights = (output: Record<string, unknown>): ArtifactHighl
   const highlights: ArtifactHighlight[] = [];
 
   pushHighlight(highlights, 'Outreach message', output.message);
+  pushHighlight(highlights, 'Subject', output.subject);
+  pushHighlight(highlights, 'Channel', output.channel);
   pushHighlight(highlights, 'Outreach plan', output.outreachPlan);
   pushNumericHighlight(highlights, 'Touchpoints', output.touchpoints);
   pushHighlight(highlights, 'Next steps', output.nextSteps);
+  pushHighlight(highlights, 'Tone notes', output.toneNotes);
 
   pushHighlight(highlights, 'Facts', output.facts);
   pushHighlight(highlights, 'Sources', output.sources);
   pushHighlight(highlights, 'Market context', output.marketContext);
 
+  pushHighlight(highlights, 'Brief title', output.briefTitle);
+  pushHighlight(highlights, 'Brief', output.brief);
+  pushHighlight(highlights, 'Goals', output.goals);
+  pushHighlight(highlights, 'Scope', output.scope);
+  pushHighlight(highlights, 'Out of scope', output.outOfScope);
+  pushHighlight(highlights, 'Success metrics', output.successMetrics);
+  pushHighlight(highlights, 'Blockers', output.blockers);
+  pushHighlight(highlights, 'Market context summary', output.marketContextSummary);
+
+  pushHighlight(highlights, 'Direction', output.direction);
+  pushHighlight(highlights, 'Palette', output.palette);
+  pushHighlight(highlights, 'Typography', output.typography);
+  pushHighlight(highlights, 'Layout notes', output.layoutNotes);
+
+  pushHighlight(highlights, 'Stack', output.stack);
+  pushHighlight(highlights, 'Architecture', output.architecture);
+  pushHighlight(highlights, 'Build plan', output.buildPlan);
+  pushHighlight(highlights, 'File structure', output.fileStructure);
+
   pushHighlight(highlights, 'Checklist', output.checklist);
   pushHighlight(highlights, 'Acceptance criteria', output.acceptanceCriteria);
   pushHighlight(highlights, 'Issues', output.issues);
+  if (typeof output.readyForImplementation === 'boolean') {
+    highlights.push({
+      label: 'Ready for implementation',
+      value: output.readyForImplementation ? 'Yes' : 'No',
+    });
+  }
 
   return highlights;
 };

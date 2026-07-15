@@ -622,6 +622,43 @@ button:disabled {
   color: var(--muted);
   font-size: 0.85rem;
   line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.approval-gate-panel__sections {
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.approval-gate-panel__section dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.approval-gate-panel__section dd {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+
+.approval-gate-panel__section dd p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.approval-gate-panel__section ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.approval-gate-panel__content--project_brief .approval-gate-panel__headline,
+.approval-gate-panel__content--build_plan_qa .approval-gate-panel__headline {
+  font-weight: 600;
 }
 
 .toast {

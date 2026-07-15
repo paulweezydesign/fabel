@@ -1,5 +1,6 @@
 import type { AiClient } from './ai-client';
 import { createStubAiClient } from '@/testing/doubles';
+import { buildDemoStubReply } from './demo-stub-payloads';
 import { createNimAiClientFromEnv } from './nim-ai-client';
 import { createOpenAiClientFromEnv } from './openai-ai-client';
 
@@ -29,6 +30,9 @@ export const createAiClientFromEnv = (fetchImpl?: FetchImpl): AiClient => {
     case 'openai':
       return createOpenAiClientFromEnv(fetchImpl);
     case 'stub':
-      return createStubAiClient();
+      return createStubAiClient((messages) => {
+        const user = messages.find((message) => message.role === 'user')?.content ?? '';
+        return buildDemoStubReply(user);
+      });
   }
 };

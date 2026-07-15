@@ -77,6 +77,58 @@ describe('extractHighlights', () => {
     ]);
   });
 
+  it('extracts project brief fields for PM artifacts', () => {
+    const highlights = extractHighlights({
+      status: 'success',
+      summary: 'Brief ready',
+      output: {
+        briefTitle: 'Acme rebuild',
+        brief: 'Narrative brief body',
+        goals: ['Ship Q3'],
+        scope: ['Storefront'],
+        outOfScope: ['ERP'],
+        blockers: ['Assets late'],
+      },
+      questions: [],
+      risks: [],
+    });
+
+    expect(highlights).toEqual(
+      expect.arrayContaining([
+        { label: 'Brief title', value: 'Acme rebuild' },
+        { label: 'Brief', value: 'Narrative brief body' },
+        { label: 'Goals', value: ['Ship Q3'] },
+        { label: 'Scope', value: ['Storefront'] },
+        { label: 'Out of scope', value: ['ERP'] },
+        { label: 'Blockers', value: ['Assets late'] },
+      ]),
+    );
+  });
+
+  it('extracts QA readiness for build-plan artifacts', () => {
+    const highlights = extractHighlights({
+      status: 'success',
+      summary: 'QA done',
+      output: {
+        checklist: ['Mobile'],
+        acceptanceCriteria: ['a11y'],
+        issues: ['Missing errors'],
+        readyForImplementation: true,
+      },
+      questions: [],
+      risks: [],
+    });
+
+    expect(highlights).toEqual(
+      expect.arrayContaining([
+        { label: 'Checklist', value: ['Mobile'] },
+        { label: 'Acceptance criteria', value: ['a11y'] },
+        { label: 'Issues', value: ['Missing errors'] },
+        { label: 'Ready for implementation', value: 'Yes' },
+      ]),
+    );
+  });
+
   it('falls back to top-level keys for non-AgentRunResult content', () => {
     const highlights = extractHighlights(plainJsonArtifact);
 
