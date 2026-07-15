@@ -56,3 +56,9 @@ Set `FABEL_AUTH_PASSWORD` (and preferably `FABEL_AUTH_SECRET`) in `.env.local`
 to require login for `/` and `/api/**`. When unset, auth is disabled so CI and
 local smoke stay open. Session cookies are signed HMAC tokens; the Next.js
 edge `proxy.ts` enforces the gate.
+
+### Persistence
+
+Default is SQLite via Node’s built-in `node:sqlite` (`FABEL_PERSISTENCE=sqlite`,
+DB path `.data/fabel.db` or `FABEL_SQLITE_PATH`). Also supported: `file` (legacy
+JSON dirs) and `memory`. The experimental SQLite warning from Node is expected.
