@@ -23,7 +23,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` → **Create account** → dashboard shows Suspense skeleton then seeded demo documents.
+Open `http://localhost:5173` (or whichever port Vite prints) → **Create account** → dashboard shows a Suspense skeleton (~900ms) then seeded demo documents.
+
+Better Auth trusts `localhost` / `127.0.0.1` on any port so a Vite port hop does not cause `Invalid origin`.
 
 ### Scripts
 

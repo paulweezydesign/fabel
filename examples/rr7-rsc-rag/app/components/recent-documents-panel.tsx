@@ -13,7 +13,7 @@ export async function RecentDocumentsPanel({
   ownerId,
 }: RecentDocumentsPanelProps) {
   // Artificial pause so Suspense fallback is visible during demos/teaching.
-  await delay(400);
+  await delay(900);
   await ensureDemoDocuments(ownerId);
   const docs = await listRecentDocuments(ownerId);
 
