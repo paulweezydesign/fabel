@@ -1,0 +1,234 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Newsreader", "Iowan Old Style", "Palatino Linotype", serif;
+  --font-sans: "Sora", "Avenir Next", "Segoe UI", sans-serif;
+  --color-ink: #14201b;
+  --color-moss: #1f4d3a;
+  --color-leaf: #3f7a5a;
+  --color-sand: #e7efe6;
+  --color-fog: #f3f7f2;
+  --color-alert: #9b2c2c;
+}
+
+@layer base {
+  :root {
+    color: var(--color-ink);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, #cfe3d6 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #d9e8df 0%, transparent 45%),
+      linear-gradient(180deg, var(--color-fog), #eef4ee 40%, #e4eee6);
+    font-family: var(--font-sans);
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  a {
+    color: var(--color-moss);
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 220ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
+}
+
+.brand {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-leaf);
+  margin: 0 0 0.75rem;
+}
+
+.hero,
+.auth-page,
+.dashboard {
+  width: min(720px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 4.5rem 0 3rem;
+}
+
+.hero h1,
+.auth-page h1,
+.dashboard h1 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 1.05;
+  margin: 0 0 1rem;
+  color: var(--color-ink);
+}
+
+.lede,
+.section-note {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #31453b;
+  max-width: 38rem;
+}
+
+.cta-row,
+.dash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.button,
+.auth-form button,
+.ghost-button {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  padding: 0.7rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button,
+.auth-form button {
+  background: var(--color-moss);
+  color: #f5faf6;
+}
+
+.button.ghost,
+.ghost-button {
+  background: transparent;
+  border-color: #7fa48d;
+  color: var(--color-moss);
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid #c5d7cb;
+  border-radius: 0.75rem;
+  backdrop-filter: blur(6px);
+}
+
+.auth-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.auth-form input {
+  border: 1px solid #b7cebf;
+  border-radius: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  background: #fbfffb;
+}
+
+.auth-error {
+  color: var(--color-alert);
+  margin: 0;
+}
+
+.auth-switch {
+  margin-top: 1rem;
+}
+
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.dash-section {
+  margin-top: 2.5rem;
+}
+
+.dash-section h2 {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  margin: 0 0 0.4rem;
+}
+
+.dash-section.muted {
+  opacity: 0.9;
+}
+
+.doc-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.doc-list li {
+  padding: 1rem 1.1rem;
+  border-left: 3px solid var(--color-leaf);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.doc-list h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.doc-list p {
+  margin: 0 0 0.5rem;
+  color: #3a5246;
+}
+
+.doc-list time {
+  font-size: 0.8rem;
+  color: #5b7265;
+}
+
+.panel.skeleton {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed #9db7a8;
+  border-radius: 0.6rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.skel-line {
+  height: 0.85rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #d5e5db, #eef5f0, #d5e5db);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.skel-line.short {
+  width: 55%;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel-line {
+    animation: none;
+  }
+}
