@@ -8,6 +8,14 @@ CI runs on every push and pull request (`npm test`, `npm run typecheck`, `npx ne
 
 The full spec lives in [`prd/v1-agent-powered-agency-platform.md`](prd/v1-agent-powered-agency-platform.md).
 
+## Teaching sandbox (React Router RSC)
+
+Part 1 of the RR RSC + Better Auth + MongoDB series lives in [`examples/rr7-rsc-rag`](examples/rr7-rsc-rag) — experimental React Router RSC Framework Mode, separate from the Next.js V1 app.
+
+```bash
+cd examples/rr7-rsc-rag && npm install && npm run dev
+```
+
 ## Architecture
 
 Four layers (see the PRD for details):
